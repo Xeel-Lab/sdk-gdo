@@ -35,7 +35,7 @@ The MCP servers in this demo highlight how each tool can light up widgets by com
 - `assets/` – Generated HTML, JS, and CSS bundles after running the build step.
 - `shopping_cart_python/` – Python MCP server that demonstrates how `_meta["widgetSessionId"]` keeps `widgetState` in sync across turns for a shopping-cart widget.
 - `pizzaz_server_node/` – MCP server implemented with the official TypeScript SDK.
-- `electronics_server_python/` – Python MCP server that returns the Electronics widgets.
+- `gdo_server_python/` – Python MCP server that returns the GDO widgets.
 - `solar-system_server_python/` – Python MCP server for the 3D solar system widget.
 - `kitchen_sink_server_node/` – Node MCP server for the kitchen-sink-lite widget.
 - `kitchen_sink_server_python/` – Python MCP server for the kitchen-sink-lite widget.
@@ -48,9 +48,9 @@ This example contains multiple components showing multiple types of views and in
 
 This example uses the [Apps SDK UI library](https://github.com/openai/apps-sdk-ui) for simple components such as images, buttons, and badges.
 
-### Electronics product modal
+### GDO product modal
 
-The `electronics-shop` widget includes a product details modal that can surface up to three related products. Related items are selected using same-category signals when available, and fall back to text overlap and nearby price range when categories are missing.
+The `gdo-shop` widget includes a product details modal that can surface up to three related products. Related items are selected using same-category signals when available, and fall back to text overlap and nearby price range when categories are missing.
 
 ### Kitchen sink lite overview
 
@@ -126,35 +126,35 @@ cd pizzaz_server_node
 pnpm start
 ```
 
-### Electronics Python server
+### GDO Python server
 
-The Electronics server exposes 7 tools/widgets for displaying and managing electronics products:
+The GDO server exposes 7 tools/widgets for displaying and managing GDO products:
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-pip install -r electronics_server_python/requirements.txt
-uvicorn electronics_server_python.main:app --port 8000
+pip install -r gdo_server_python/requirements.txt
+uvicorn gdo_server_python.main:app --port 8000
 ```
 
-#### Electronics Shopping Cart System
+#### GDO Shopping Cart System
 
-The Electronics server includes a shared shopping cart system that works across all product widgets:
+The GDO server includes a shared shopping cart system that works across all product widgets:
 
 - **Tool `shopping-cart`**: A dedicated MCP tool that displays the shopping cart when the user requests to see it (e.g., "Show me the cart", "What's in my cart?")
 - **Shared Cart Hook (`useCart`)**: A React hook (`src/use-cart.ts`) that manages cart state across all widgets using a dedicated `sharedCartItems` key in `widgetState` to avoid conflicts with other widgets
 - **Add to Cart Buttons**: All product widgets include "Aggiungi al carrello" (Add to Cart) buttons:
-  - `electronics-carousel`: Button on each product card
-  - `electronics-list`: Button on each list item
-  - `electronics-albums`: Button in fullscreen product view
-  - `electronics-map`: Button in sidebar and inspector
+  - `gdo-carousel`: Button on each product card
+  - `gdo-list`: Button on each list item
+  - `gdo-albums`: Button in fullscreen product view
+  - `gdo-map`: Button in sidebar and inspector
   - `mixed-auth-search`: Button on each search result card
 - **Shopping Cart Widget**: The `shopping-cart` widget displays only products explicitly added via the "Add to Cart" buttons
 - **Empty Cart by Default**: The cart starts empty and only shows products that users have manually added
 - **Duplicate Prevention**: Includes debouncing (500ms) and duplicate detection to prevent accidental multiple additions
 - **Unique Product IDs**: Backend ensures unique product IDs to prevent conflicts
 
-The cart state is isolated from other widgets (like `electronics-shop`) and persists across widget interactions, allowing users to add products from different views and see them all in the cart.
+The cart state is isolated from other widgets (like `gdo-shop`) and persists across widget interactions, allowing users to add products from different views and see them all in the cart.
 
 ### Authenticated Python server
 
@@ -239,22 +239,22 @@ You can add your app to the conversation context by selecting it in the "More" o
 
 You can then invoke tools by asking something related. For example, for the Pizzaz app, you can ask "What are the best pizzas in town?".
 
-## Electronics Shopping Cart Architecture
+## GDO Shopping Cart Architecture
 
 ### Overview
 
-The Electronics shopping cart system uses a centralized state management approach with the `useCart` hook. This ensures that products added from any widget are visible in the cart across all views.
+The GDO shopping cart system uses a centralized state management approach with the `useCart` hook. This ensures that products added from any widget are visible in the cart across all views.
 
 ### Key Components
 
-1. **Tool `shopping-cart` (Backend)**: MCP tool registered in `electronics_server_python/main.py`
+1. **Tool `shopping-cart` (Backend)**: MCP tool registered in `gdo_server_python/main.py`
    - Exposed as a tool that the AI can call when the user requests to see the cart
    - Returns the shopping cart widget HTML
    - No input parameters required (cart state is managed client-side)
 
 2. **`src/use-cart.ts`**: Central hook that manages cart state
    - Uses `sharedCartItems` key in `window.openai.widgetState` to store cart data
-   - Isolates cart state from other widgets (prevents conflicts with `electronics-shop`)
+   - Isolates cart state from other widgets (prevents conflicts with `gdo-shop`)
    - Provides `addToCart`, `removeFromCart`, and `isInCart` functions
    - Includes debouncing (500ms) to prevent rapid duplicate additions
 
@@ -265,10 +265,10 @@ The Electronics shopping cart system uses a centralized state management approac
    - Uses `useCart()` hook to read from shared cart state
 
 4. **Product Widgets**: All widgets that display products include "Add to Cart" buttons
-   - `src/electronics-carousel/PlaceCard.jsx`
-   - `src/electronics-list/index.jsx`
-   - `src/electronics-albums/FullscreenViewer.jsx`
-   - `src/electronics/Sidebar.jsx` and `Inspector.jsx`
+   - `src/gdo-carousel/PlaceCard.jsx`
+   - `src/gdo-list/index.jsx`
+   - `src/gdo-albums/FullscreenViewer.jsx`
+   - `src/gdo/Sidebar.jsx` and `Inspector.jsx`
    - `src/mixed-auth-search/SliceCard.jsx`
 
 ### State Management
@@ -290,7 +290,7 @@ The Electronics shopping cart system uses a centralized state management approac
 
 ## Next steps
 
-- Customize the widget data: edit the handlers in `electronics_server_python/main.py`, or the solar system server to fetch data from your systems.
+- Customize the widget data: edit the handlers in `gdo_server_python/main.py`, or the solar system server to fetch data from your systems.
 - Create your own components and add them to the gallery: drop new entries into `src/` and they will be picked up automatically by the build script.
 
 ### Deploy your MCP server

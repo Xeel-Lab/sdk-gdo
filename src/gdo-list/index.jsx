@@ -153,7 +153,7 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("electronics-list-root")).render(<App />);
+createRoot(document.getElementById("gdo-list-root")).render(<App />);
 
 export { App };
 export default App;

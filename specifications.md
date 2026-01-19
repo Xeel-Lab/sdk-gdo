@@ -49,8 +49,8 @@ Questo documento descrive i passaggi necessari per sostituire i prodotti attuali
   - [5.2 Versionamento del server applicazione](#52-versionamento-del-server-applicazione)
   - [5.3 Checklist versionamento](#53-checklist-versionamento)
 
-### 6. Refactoring da Pizzaz a Electronics
-- [6. Refactoring da Pizzaz a Electronics](#6-refactoring-da-pizzaz-a-electronics)
+### 6. Refactoring da Pizzaz a GDO
+- [6. Refactoring da Pizzaz a GDO](#6-refactoring-da-pizzaz-a-gdo)
   - [6.1 Rinominare directory e file](#61-rinominare-directory-e-file)
   - [6.2 Refactoring codice Python (Server)](#62-refactoring-codice-python-server)
   - [6.3 Refactoring codice TypeScript/JavaScript (Frontend)](#63-refactoring-codice-typescriptjavascript-frontend)
@@ -98,14 +98,13 @@ Questo documento descrive i passaggi necessari per sostituire i prodotti attuali
 
 ## 1. Preparazione dell'ambiente
 
-- [x]  **Comprendere la struttura del progetto**: Familiarizza con i file principali, in particolare `py/new_initial_cart_items.ts` (i tuoi prodotti), `src/pizzaz-shop/index.tsx` (il widget del negozio che usa i prodotti, da rinominare in `src/electronics-shop/index.tsx` dopo refactoring Sezione 6), `src/shopping-cart/index.tsx` (il widget del carrello), `electronics_server_python/main.py` (il backend Python) e `package.json` (script di build).
-  - Nota: I path con "pizzaz" sono ancora corretti perché il refactoring (Sezione 6) non è stato completato
+- [x]  **Comprendere la struttura del progetto**: Familiarizza con i file principali, in particolare `py/new_initial_cart_items.ts` (i tuoi prodotti), `src/gdo-shop/index.tsx` (il widget del negozio che usa i prodotti), `src/shopping-cart/index.tsx` (il widget del carrello), `gdo_server_python/main.py` (il backend Python) e `package.json` (script di build).
   - **Dettagli struttura progetto**:
-    - **File prodotti**: `py/new_initial_cart_items.ts` contiene array di prodotti elettronici con tipo `CartItem[]`
-    - **Widget negozio**: `src/pizzaz-shop/index.tsx` importa prodotti e gestisce UI del negozio
+    - **File prodotti**: `py/new_initial_cart_items.ts` contiene array di prodotti GDO con tipo `CartItem[]`
+    - **Widget negozio**: `src/gdo-shop/index.tsx` importa prodotti e gestisce UI del negozio
     - **Widget carrello**: `src/shopping-cart/index.tsx` gestisce il carrello acquisti
-    - **Server Python**: `electronics_server_python/main.py` espone tool MCP per i widget e per il flusso checkout/Stripe (PaymentIntent + sessioni checkout MCP).
-    - **Build system**: `build-all.mts` genera bundle per tutti i widget (pizzaz, pizzaz-shop, pizzaz-carousel, pizzaz-list, pizzaz-albums, etc.)
+    - **Server Python**: `gdo_server_python/main.py` espone tool MCP per i widget e per il flusso checkout/Stripe (PaymentIntent + sessioni checkout MCP).
+    - **Build system**: `build-all.mts` genera bundle per tutti i widget (gdo, gdo-shop, gdo-carousel, gdo-list, gdo-albums, etc.)
     - **Package manager**: `package.json` versione 5.0.16, usa pnpm 10.24.0
 
 ## 2. Integrazione dei prodotti elettronici
@@ -119,32 +118,32 @@ Questo documento descrive i passaggi necessari per sostituire i prodotti attuali
   - **Nota**: Per dettagli su bug trovati e risolti, vedere `bugs.md` sezione "Bug risolti - 2.2 Compatibilità dei tipi `CartItem`"
 
 ### 2.3 Migrazione dati da JSON a Database MotherDuck
-- [x] **ALTA PRIORITÀ - Migrazione dati da `markers.json` a database**: I dati dei widget UI (carousel, list, map, albums, shop) attualmente vengono presi da `src/electronics/markers.json`. Questa modifica richiede di migrare tutti i widget per leggere i dati dal database MotherDuck invece che dal file JSON.
+- [x] **ALTA PRIORITÀ - Migrazione dati da `markers.json` a database**: I dati dei widget UI (carousel, list, map, albums, shop) attualmente vengono presi da `src/gdo/markers.json`. Questa modifica richiede di migrare tutti i widget per leggere i dati dal database MotherDuck invece che dal file JSON.
   - **Stato attuale**: ✅ **COMPLETATO** [2026-01-09] Tutti i widget ora leggono **esclusivamente** i dati da `toolOutput` (popolato dal server Python). Il fallback a JSON è stato rimosso come richiesto. Gli asset sono stati rigenerati con la build.
   - **Obiettivo**: ✅ **RAGGIUNTO** I dati vengono presi **solo** dal database MotherDuck (tabella `prodotti_xeel_shop` nello schema `main` del database `app_gpt_elettronica`) quando i tool vengono chiamati.
   - **Soluzione implementata**:
-    1. ✅ **Funzione di trasformazione prodotti->places** (`electronics_server_python/main.py`):
+    1. ✅ **Funzione di trasformazione prodotti->places** (`gdo_server_python/main.py`):
        - Creata funzione `transform_products_to_places()` che converte prodotti dal database in formato "places"
       - Mappa i campi: `id`, `name`, `price` (numero → stringa in euro, es. `34,59€`), `description`, `image` → `thumbnail`
        - Genera valori default per campi mancanti:
          - `coords`: Coordinate di default per San Francisco (distribuite in diverse zone)
          - `city`: Nome città di default basato su pattern circolare
          - `rating`: Rating di default 4.5 (può essere calcolato in futuro se disponibile)
-    2. ✅ **Funzione di trasformazione prodotti->albums** (`electronics_server_python/main.py`):
+    2. ✅ **Funzione di trasformazione prodotti->albums** (`gdo_server_python/main.py`):
        - Creata funzione `transform_products_to_albums()` che raggruppa prodotti per categoria/tag
        - Crea album tematici basati sui tag dei prodotti
        - Ogni prodotto diventa una "photo" nell'album corrispondente
-    3. ✅ **Server Python aggiornato** (`electronics_server_python/main.py`):
+    3. ✅ **Server Python aggiornato** (`gdo_server_python/main.py`):
        - Modificato `_call_tool_request` per recuperare prodotti da MotherDuck quando necessario
-       - Per `electronics-carousel`, `electronics-map`, `electronics-list`, `mixed-auth-search`: trasforma prodotti in `places` e passa in `structuredContent`
-       - Per `electronics-albums`: trasforma prodotti in `albums` e passa in `structuredContent`
+       - Per `gdo-carousel`, `gdo-map`, `gdo-list`, `mixed-auth-search`: trasforma prodotti in `places` e passa in `structuredContent`
+       - Per `gdo-albums`: trasforma prodotti in `albums` e passa in `structuredContent`
        - Per `product-list`: passa direttamente i prodotti in `structuredContent`
     4. ✅ **Widget aggiornati per leggere solo da toolOutput** [2026-01-09]:
-       - `src/electronics-carousel/index.jsx`: Legge **solo** da `toolOutput?.places || []` (fallback JSON rimosso)
-       - `src/electronics/index.jsx` (map): Legge **solo** da `toolOutput?.places || []` (fallback JSON rimosso)
-       - `src/electronics-list/index.jsx`: Legge **solo** da `toolOutput?.places || []` (fallback JSON rimosso)
+       - `src/gdo-carousel/index.jsx`: Legge **solo** da `toolOutput?.places || []` (fallback JSON rimosso)
+       - `src/gdo/index.jsx` (map): Legge **solo** da `toolOutput?.places || []` (fallback JSON rimosso)
+       - `src/gdo-list/index.jsx`: Legge **solo** da `toolOutput?.places || []` (fallback JSON rimosso)
        - `src/mixed-auth-search/index.jsx`: Legge **solo** da `toolOutput?.places || []` (fallback JSON rimosso)
-       - `src/electronics-albums/index.jsx`: Legge **solo** da `toolOutput?.albums || []` (fallback JSON rimosso)
+       - `src/gdo-albums/index.jsx`: Legge **solo** da `toolOutput?.albums || []` (fallback JSON rimosso)
     5. ✅ **Asset rigenerati** [2026-01-09]:
        - Eseguita `pnpm run build` per rigenerare tutti gli asset HTML/JS/CSS con il codice aggiornato
        - Tutti i widget ora utilizzano esclusivamente i dati da MotherDuck tramite `toolOutput`
@@ -294,7 +293,7 @@ Questa sezione verifica che il progetto rispetti le linee guida di versionamento
 
 #### 5.1.2 Backward Compatibility
 - [x] **Mantenimento compatibilità**: Verificare che modifiche future mantengano backward compatibility
-  - **Completato**: [2026-01-08] Documentata policy di backward compatibility nel README del server (`electronics_server_python/README.md`). La policy include:
+  - **Completato**: [2026-01-08] Documentata policy di backward compatibility nel README del server (`gdo_server_python/README.md`). La policy include:
     1. Tool Stability: I tool esistenti non verranno rimossi
     2. Schema Compatibility: Gli schemi input/output non verranno modificati in modo breaking
     3. Resource Stability: Le risorse esistenti rimarranno disponibili
@@ -336,7 +335,7 @@ Questa sezione verifica che il progetto rispetti le linee guida di versionamento
 
 #### 5.2.1 Versioning del server
 - [x] **Versione del server**: Definire strategia di versionamento per il server applicazione
-  - **Completato**: [2026-01-08] Implementato versionamento semantico (Semantic Versioning) nel server. Aggiunto `__version__ = "1.0.0"` in `electronics_server_python/main.py` (riga 11). Strategia definita:
+  - **Completato**: [2026-01-08] Implementato versionamento semantico (Semantic Versioning) nel server. Aggiunto `__version__ = "1.0.0"` in `gdo_server_python/main.py` (riga 11). Strategia definita:
     - **MAJOR** (X.0.0): Breaking changes che richiedono aggiornamenti client
     - **MINOR** (0.X.0): Nuove funzionalità, nuovi tool, nuove risorse (backward compatible)
     - **PATCH** (0.0.X): Bug fixes e miglioramenti minori (backward compatible)
@@ -359,7 +358,7 @@ Questa sezione verifica che il progetto rispetti le linee guida di versionamento
 
 #### 5.2.2 Compatibilità con versioni MCP
 - [x] **Documentazione versioni supportate**: Documentare quali versioni MCP sono supportate
-  - **Completato**: [2026-01-08] Documentato nel README del server (`electronics_server_python/README.md`):
+  - **Completato**: [2026-01-08] Documentato nel README del server (`gdo_server_python/README.md`):
     - **MCP Protocol Version**: 2024-11-05 (Current - versione stabile)
     - **Server Version**: 1.0.0 (Semantic Versioning)
     - FastMCP gestisce automaticamente la version negotiation
@@ -378,7 +377,7 @@ Questa sezione verifica che il progetto rispetti le linee guida di versionamento
 - [x] Version negotiation implementata e testata
 - [x] Error handling per negotiation fallita implementato
 - [x] Strategia di versionamento del server definita
-  - **Completato**: [2026-01-08] Implementato versionamento semantico (Semantic Versioning) con `__version__ = "1.0.0"` in `electronics_server_python/main.py`. Strategia documentata nel README.
+  - **Completato**: [2026-01-08] Implementato versionamento semantico (Semantic Versioning) con `__version__ = "1.0.0"` in `gdo_server_python/main.py`. Strategia documentata nel README.
 - [x] Changelog creato e mantenuto
   - **Completato**: [2026-01-08] Creato `CHANGELOG.md` nella root del progetto seguendo il formato Keep a Changelog. Documentata versione iniziale 1.0.0.
 - [x] Documentazione versioni supportate aggiornata
@@ -386,185 +385,185 @@ Questa sezione verifica che il progetto rispetti le linee guida di versionamento
 - [x] Policy per backward compatibility documentata
   - **Completato**: [2026-01-08] Documentata policy nel README del server con regole per mantenere backward compatibility in future modifiche.
 
-## 6. Refactoring da Pizzaz a Electronics
+## 6. Refactoring da Pizzaz a GDO
 
-Questa sezione documenta il refactoring completo necessario per trasformare il progetto dall'esempio Pizzaz a un'applicazione per prodotti elettronici. Tutti i riferimenti a "pizzaz", "pizza", e concetti correlati devono essere sostituiti con terminologia appropriata per prodotti elettronici.
+Questa sezione documenta il refactoring completo necessario per trasformare il progetto dall'esempio Pizzaz a un'applicazione per prodotti GDO. Tutti i riferimenti a "pizzaz", "pizza", e concetti correlati devono essere sostituiti con terminologia appropriata per prodotti GDO.
 
 ### 6.1 Rinominare directory e file
 
 #### 6.1.1 Directory server
-- [x] **Rinominare `pizzaz_server_python/` → `electronics_server_python/`**
+- [x] **Rinominare `pizzaz_server_python/` → `gdo_server_python/`**
   - **Completato**: [2026-01-08] Directory rinominata con successo
   - File rinominati:
-    - `pizzaz_server_python/main.py` → `electronics_server_python/main.py` (REFACTORING CODICE COMPLETATO: [2026-01-08] Tutti i riferimenti a Pizzaz/Pizza sono stati rinominati a Electronics nel codice)
-    - `pizzaz_server_python/README.md` → `electronics_server_python/README.md`
-    - `pizzaz_server_python/requirements.txt` → `electronics_server_python/requirements.txt`
+    - `pizzaz_server_python/main.py` → `gdo_server_python/main.py` (REFACTORING CODICE COMPLETATO: [2026-01-08] Tutti i riferimenti a Pizzaz/Pizza sono stati rinominati a GDO nel codice)
+    - `pizzaz_server_python/README.md` → `gdo_server_python/README.md`
+    - `pizzaz_server_python/requirements.txt` → `gdo_server_python/requirements.txt`
   - Aggiornare riferimenti in:
-    - `specifications.md` (in corso)
-    - `README.md`
-    - `build-all.mts` (COMPLETATO: [2026-01-08] Aggiornato a electronics-*)
+    - `specifications.md` (COMPLETATO)
+    - `README.md` (COMPLETATO)
+    - `build-all.mts` (COMPLETATO: [2026-01-08] Aggiornato a gdo-*)
     - File di configurazione Render/deployment (da aggiornare)
 
 #### 6.1.2 Directory widget frontend
-- [x] **Rinominare `src/pizzaz/` → `src/electronics/`**
+- [x] **Rinominare `src/pizzaz/` → `src/gdo/`**
   - **Completato**: [2026-01-08] Directory rinominata con successo
-  - File da rinominare:
-    - `src/pizzaz/index.jsx` → `src/electronics/index.jsx`
-    - `src/pizzaz/Inspector.jsx` → `src/electronics/Inspector.jsx`
-    - `src/pizzaz/Sidebar.jsx` → `src/electronics/Sidebar.jsx`
-    - `src/pizzaz/map.css` → `src/electronics/map.css`
-    - `src/pizzaz/markers.json` → `src/electronics/markers.json`
+  - File rinominati:
+    - `src/pizzaz/index.jsx` → `src/gdo/index.jsx`
+    - `src/pizzaz/Inspector.jsx` → `src/gdo/Inspector.jsx`
+    - `src/pizzaz/Sidebar.jsx` → `src/gdo/Sidebar.jsx`
+    - `src/pizzaz/map.css` → `src/gdo/map.css`
+    - `src/pizzaz/markers.json` → `src/gdo/markers.json`
   
-- [x] **Rinominare `src/pizzaz-shop/` → `src/electronics-shop/`**
+- [x] **Rinominare `src/pizzaz-shop/` → `src/gdo-shop/`**
   - **Completato**: [2026-01-08] Directory rinominata con successo
-  - File da rinominare:
-    - `src/pizzaz-shop/index.tsx` → `src/electronics-shop/index.tsx`
+  - File rinominati:
+    - `src/pizzaz-shop/index.tsx` → `src/gdo-shop/index.tsx`
   
-- [x] **Rinominare `src/pizzaz-carousel/` → `src/electronics-carousel/`**
+- [x] **Rinominare `src/pizzaz-carousel/` → `src/gdo-carousel/`**
   - **Completato**: [2026-01-08] Directory rinominata con successo
-  - File da rinominare:
-    - `src/pizzaz-carousel/index.jsx` → `src/electronics-carousel/index.jsx`
-    - `src/pizzaz-carousel/PlaceCard.jsx` → `src/electronics-carousel/PlaceCard.jsx`
+  - File rinominati:
+    - `src/pizzaz-carousel/index.jsx` → `src/gdo-carousel/index.jsx`
+    - `src/pizzaz-carousel/PlaceCard.jsx` → `src/gdo-carousel/PlaceCard.jsx`
   
-- [x] **Rinominare `src/pizzaz-albums/` → `src/electronics-albums/`**
+- [x] **Rinominare `src/pizzaz-albums/` → `src/gdo-albums/`**
   - **Completato**: [2026-01-08] Directory rinominata con successo
-  - File da rinominare:
-    - `src/pizzaz-albums/index.jsx` → `src/electronics-albums/index.jsx`
-    - `src/pizzaz-albums/AlbumCard.jsx` → `src/electronics-albums/AlbumCard.jsx`
-    - `src/pizzaz-albums/FilmStrip.jsx` → `src/electronics-albums/FilmStrip.jsx`
-    - `src/pizzaz-albums/FullscreenViewer.jsx` → `src/electronics-albums/FullscreenViewer.jsx`
-    - `src/pizzaz-albums/albums.json` → `src/electronics-albums/products.json` (o nome appropriato)
+  - File rinominati:
+    - `src/pizzaz-albums/index.jsx` → `src/gdo-albums/index.jsx`
+    - `src/pizzaz-albums/AlbumCard.jsx` → `src/gdo-albums/AlbumCard.jsx`
+    - `src/pizzaz-albums/FilmStrip.jsx` → `src/gdo-albums/FilmStrip.jsx`
+    - `src/pizzaz-albums/FullscreenViewer.jsx` → `src/gdo-albums/FullscreenViewer.jsx`
+    - `src/pizzaz-albums/albums.json` → `src/gdo-albums/albums.json`
   
-- [x] **Rinominare `src/pizzaz-list/` → `src/electronics-list/`**
+- [x] **Rinominare `src/pizzaz-list/` → `src/gdo-list/`**
   - **Completato**: [2026-01-08] Directory rinominata con successo
-  - File da rinominare:
-    - `src/pizzaz-list/index.jsx` → `src/electronics-list/index.jsx`
+  - File rinominati:
+    - `src/pizzaz-list/index.jsx` → `src/gdo-list/index.jsx`
 
 ### 6.2 Refactoring codice Python (Server)
 
 #### 6.2.1 Classi e tipi
-- [x] **Rinominare `PizzazWidget` → `ElectronicsWidget`**
-  - **Completato**: [2026-01-08] Rinominato in `pizzaz_server_python/main.py` (riga 35)
-  - File: `electronics_server_python/main.py`
+- [x] **Rinominare `PizzazWidget` → `GdoWidget`**
+  - **Completato**: [2026-01-08] Rinominato in `gdo_server_python/main.py`
+  - File: `gdo_server_python/main.py`
   - Aggiornare tutte le occorrenze della classe
   
-- [x] **Rinominare `PizzaInput` → `ElectronicsInput`** (o rimuovere se non più necessario)
-  - **Completato**: [2026-01-08] Rimosso `PizzaInput` da `pizzaz_server_python/main.py` perché la maggior parte dei widget non richiede input. Se necessario in futuro, creare `ElectronicsInput` con campi appropriati.
-  - File: `electronics_server_python/main.py`
+- [x] **Rinominare `PizzaInput` → `GdoInput`** (o rimuovere se non più necessario)
+  - **Completato**: [2026-01-08] Rimosso `PizzaInput` da `gdo_server_python/main.py` perché la maggior parte dei widget non richiede input. Se necessario in futuro, creare `GdoInput` con campi appropriati.
+  - File: `gdo_server_python/main.py`
   - Verificare se è ancora necessario o se può essere sostituito con input più generici
 
 #### 6.2.2 Identificatori widget
 - [x] **Rinominare identificatori widget**:
-  - **Completato**: [2026-01-08] Rinominati in `pizzaz_server_python/main.py`:
-  - `pizza-map` → `electronics-map` (o `product-map`, `electronics-store-map`)
-  - `pizza-carousel` → `electronics-carousel` (o `product-carousel`)
-  - `pizza-albums` → `electronics-albums` (o `product-gallery`)
-  - `pizza-list` → `electronics-list` (o `product-list`)
-  - `pizza-shop` → `electronics-shop` (o `product-shop`)
+  - **Completato**: [2026-01-08] Rinominati in `gdo_server_python/main.py`:
+  - `pizza-map` → `gdo-map`
+  - `pizza-carousel` → `gdo-carousel`
+  - `pizza-albums` → `gdo-albums`
+  - `pizza-list` → `gdo-list`
+  - `pizza-shop` → `gdo-shop`
   - `product-list` → già corretto, ma verificare coerenza
 
 #### 6.2.3 Titoli e descrizioni
 - [x] **Aggiornare titoli widget**:
-  - **Completato**: [2026-01-08] Aggiornati in `pizzaz_server_python/main.py`:
-  - "Show Pizza Map" → "Show Electronics Store Map" (o titolo appropriato)
-  - "Show Pizza Carousel" → "Show Products Carousel"
-  - "Show Pizza Album" → "Show Products Gallery"
-  - "Show Pizza List" → "Show Products List"
-  - "Open Pizzaz Shop" → "Open Electronics Shop"
+  - **Completato**: [2026-01-08] Aggiornati in `gdo_server_python/main.py`:
+  - "Show Pizza Map" → "Show GDO Map"
+  - "Show Pizza Carousel" → "Show GDO Carousel"
+  - "Show Pizza Album" → "Show GDO Album"
+  - "Show Pizza List" → "Show GDO List"
+  - "Open Pizzaz Shop" → "Open GDO Shop"
 
 #### 6.2.4 Messaggi e testi
 - [x] **Aggiornare messaggi di invocazione**:
-  - **Completato**: [2026-01-08] Aggiornati in `pizzaz_server_python/main.py`:
-  - "Hand-tossing a map" → "Loading store map" (o messaggio appropriato)
-  - "Served a fresh map" → "Map loaded successfully"
-  - "Carousel some spots" → "Browsing products"
-  - "Served a fresh carousel" → "Products carousel ready"
-  - "Hand-tossing an album" → "Loading product gallery"
-  - "Served a fresh album" → "Product gallery ready"
-  - "Hand-tossing a list" → "Loading products list"
-  - "Served a fresh list" → "Products list ready"
-  - "Opening the shop" → "Opening electronics shop"
-  - "Shop opened" → "Electronics shop ready"
+  - **Completato**: [2026-01-08] Aggiornati in `gdo_server_python/main.py`:
+  - "Hand-tossing a map" → "Loading GDO map"
+  - "Served a fresh map" → "GDO map loaded"
+  - "Carousel some spots" → "Loading GDO carousel"
+  - "Served a fresh carousel" → "GDO carousel loaded"
+  - "Hand-tossing an album" → "Loading GDO album"
+  - "Served a fresh album" → "GDO album loaded"
+  - "Hand-tossing a list" → "Loading GDO list"
+  - "Served a fresh list" → "GDO list loaded"
+  - "Opening the shop" → "Opening GDO shop"
+  - "Shop opened" → "GDO shop opened"
 
 #### 6.2.5 URI template
 - [x] **Aggiornare URI template**:
-  - **Completato**: [2026-01-08] Aggiornati in `pizzaz_server_python/main.py`:
-  - `ui://widget/pizza-map.html` → `ui://widget/electronics-map.html`
-  - `ui://widget/pizza-carousel.html` → `ui://widget/electronics-carousel.html`
-  - `ui://widget/pizza-albums.html` → `ui://widget/electronics-albums.html`
-  - `ui://widget/pizza-list.html` → `ui://widget/electronics-list.html`
-  - `ui://widget/pizza-shop.html` → `ui://widget/electronics-shop.html`
+  - **Completato**: [2026-01-08] Aggiornati in `gdo_server_python/main.py`:
+  - `ui://widget/pizza-map.html` → `ui://widget/gdo-map.html`
+  - `ui://widget/pizza-carousel.html` → `ui://widget/gdo-carousel.html`
+  - `ui://widget/pizza-albums.html` → `ui://widget/gdo-albums.html`
+  - `ui://widget/pizza-list.html` → `ui://widget/gdo-list.html`
+  - `ui://widget/pizza-shop.html` → `ui://widget/gdo-shop.html`
   - `ui://widget/product-list.html` → già corretto
 
 #### 6.2.6 Nome server MCP
 - [x] **Rinominare server MCP**:
-  - **Completato**: [2026-01-08] Rinominato `pizzaz-python` → `electronics-python` in `pizzaz_server_python/main.py` (riga 183)
-  - `name="pizzaz-python"` → `name="electronics-python"` (o nome appropriato)
-  - File: `electronics_server_python/main.py` (riga 183)
+  - **Completato**: [2026-01-08] Rinominato `pizzaz-python` → `gdo-python` in `gdo_server_python/main.py`
+  - `name="pizzaz-python"` → `name="gdo-python"`
+  - File: `gdo_server_python/main.py`
 
 #### 6.2.7 Schema input tool
 - [x] **Rinominare/rimuovere `TOOL_INPUT_SCHEMA` con `pizzaTopping`**:
-  - **Completato**: [2026-01-08] Rimosso `TOOL_INPUT_SCHEMA` con `pizzaTopping` e sostituito con `EMPTY_TOOL_INPUT_SCHEMA` in `pizzaz_server_python/main.py` (riga 189-199). La maggior parte dei widget non richiede input.
-  - File: `electronics_server_python/main.py`
+  - **Completato**: [2026-01-08] Rimosso `TOOL_INPUT_SCHEMA` con `pizzaTopping` e sostituito con `EMPTY_TOOL_INPUT_SCHEMA` in `gdo_server_python/main.py`. La maggior parte dei widget non richiede input.
+  - File: `gdo_server_python/main.py`
   - Se non più necessario, rimuovere o sostituire con schema appropriato per prodotti elettronici
   - Verificare se tutti i tool hanno schemi appropriati
 
 #### 6.2.8 Commenti e documentazione
 - [x] **Aggiornare docstring e commenti**:
-  - **Completato**: [2026-01-08] Aggiornate docstring e commenti in `electronics_server_python/main.py`:
-    - Docstring principale aggiornata da "Pizzaz" a "Electronics" (riga 1-11)
-    - Commenti aggiornati per riferirsi a prodotti elettronici invece di pizza
-    - Funzioni documentate con descrizioni appropriate per prodotti elettronici
-  - File: `electronics_server_python/main.py`
+  - **Completato**: [2026-01-08] Aggiornate docstring e commenti in `gdo_server_python/main.py`:
+    - Docstring principale aggiornata da "Pizzaz" a "GDO" (riga 1-11)
+    - Commenti aggiornati per riferirsi a prodotti GDO invece di pizza
+    - Funzioni documentate con descrizioni appropriate per prodotti GDO
+  - File: `gdo_server_python/main.py`
   - Sostituire riferimenti a "Pizzaz", "pizza", "topping" con terminologia appropriata
   - Aggiornare `README.md` del server
 
 ### 6.3 Refactoring codice TypeScript/JavaScript (Frontend)
 
 #### 6.3.1 Tipi e interfacce
-- [x] **Rinominare `PizzazCartWidgetState` → `ElectronicsCartWidgetState`**
-  - **Completato**: [2026-01-08] Rinominato in `src/electronics-shop/index.tsx` (riga 26-30, 65, 365, 528)
-  - File: `src/electronics-shop/index.tsx`
+- [x] **Rinominare `PizzazCartWidgetState` → `GdoCartWidgetState`**
+  - **Completato**: [2026-01-08] Rinominato in `src/gdo-shop/index.tsx`
+  - File: `src/gdo-shop/index.tsx`
   
-- [x] **Rinominare `PizzazCartWidgetProps` → `ElectronicsCartWidgetProps`**
-  - **Completato**: [2026-01-08] Rinominato in `src/electronics-shop/index.tsx` (riga 32-35, 364)
-  - File: `src/electronics-shop/index.tsx`
+- [x] **Rinominare `PizzazCartWidgetProps` → `GdoCartWidgetProps`**
+  - **Completato**: [2026-01-08] Rinominato in `src/gdo-shop/index.tsx`
+  - File: `src/gdo-shop/index.tsx`
 
 #### 6.3.2 Variabili e costanti
 - [ ] **Aggiornare nomi variabili con riferimenti a "pizza"**:
   - Cercare e sostituire tutte le occorrenze di variabili con "pizza" nel nome
-  - File: `src/electronics-shop/index.tsx` e altri file widget
+  - File: `src/gdo-shop/index.tsx` e altri file widget
 
 #### 6.3.3 Commenti e stringhe
 - [x] **Aggiornare commenti e stringhe**:
   - **Completato**: [2026-01-08] Aggiornati tutti i commenti e stringhe con riferimenti a "pizza"/"pizzaz":
-    - Commento in `src/mixed-auth-search/index.jsx` (riga 10): Aggiornato da "originally for pizza search" a "for electronics search"
+    - Commento in `src/mixed-auth-search/index.jsx` (riga 10): Aggiornato da "originally for pizza search" a "for GDO search"
     - Verificare che non ci siano altri riferimenti residui a "pizza" o "pizzaz" nei file frontend
   - Sostituire riferimenti a "pizza", "pizzaz" in commenti
   - Aggiornare messaggi utente se presenti
 
 #### 6.3.4 File JSON di dati
 - [x] **Aggiornare `albums.json` → `products.json`** (o nome appropriato):
-  - **Valutato**: [2026-01-08] Il file `albums.json` contiene dati per il widget `electronics-albums` che mostra una galleria di prodotti. Il nome `albums.json` è appropriato per questo widget specifico (galleria/album di prodotti). Non è necessario rinominarlo perché:
-    - È usato solo dal widget `electronics-albums`
+  - **Valutato**: [2026-01-08] Il file `albums.json` contiene dati per il widget `gdo-albums` che mostra una galleria di prodotti. Il nome `albums.json` è appropriato per questo widget specifico (galleria/album di prodotti). Non è necessario rinominarlo perché:
+    - È usato solo dal widget `gdo-albums`
     - Il nome "albums" descrive correttamente il formato (galleria di immagini)
     - Rinominarlo potrebbe confondere se il widget mantiene il concetto di "album/galleria"
   - **Nota**: Se in futuro si volesse un nome più generico, si potrebbe considerare `products-gallery.json`, ma per ora `albums.json` è accettabile.
-  - File: `src/electronics-albums/albums.json`
+  - File: `src/gdo-albums/albums.json`
   - Sostituire dati di esempio pizza con dati prodotti elettronici (se necessario)
-  - Rinominare chiavi come "pizza-tour" → "electronics-tour" o simili
+  - Rinominare chiavi come "pizza-tour" → "gdo-tour" o simili
 
 - [x] **Aggiornare `markers.json`**:
-  - **Valutato**: [2026-01-08] Il file `markers.json` contiene dati per la mappa (markers/posizioni). Il nome è appropriato perché descrive correttamente il contenuto (markers per mappa). Il contenuto dovrebbe essere aggiornato per riflettere negozi di elettronica invece di pizzerie, ma il nome del file è corretto.
-  - **Azioni richieste**: Aggiornare il contenuto di `markers.json` per includere posizioni di negozi di elettronica invece di pizzerie (se necessario per il caso d'uso).
-  - File: `src/electronics/markers.json`
+  - **Valutato**: [2026-01-08] Il file `markers.json` contiene dati per la mappa (markers/posizioni). Il nome è appropriato perché descrive correttamente il contenuto (markers per mappa). Il contenuto dovrebbe essere aggiornato per riflettere negozi GDO invece di pizzerie, ma il nome del file è corretto.
+  - **Azioni richieste**: Aggiornare il contenuto di `markers.json` per includere posizioni di negozi GDO invece di pizzerie (se necessario per il caso d'uso).
+  - File: `src/gdo/markers.json`
   - Sostituire marker pizza con marker negozi elettronici (se necessario)
 
 ### 6.4 Aggiornare file di configurazione
 
 #### 6.4.1 Build e deployment
 - [x] **Aggiornare `build-all.mts`**:
-  - **Completato**: [2026-01-08] Aggiornato `build-all.mts` con i nuovi nomi `electronics-*` invece di `pizzaz-*` (riga 20-24)
+  - **Completato**: [2026-01-08] Aggiornato `build-all.mts` con i nuovi nomi `gdo-*` invece di `pizzaz-*` (riga 20-24)
   - Aggiornare riferimenti a directory rinominati
   - Verificare che i path siano corretti
 
@@ -574,15 +573,15 @@ Questa sezione documenta il refactoring completo necessario per trasformare il p
 
 - [x] **Aggiornare file di deployment**:
   - **Completato**: [2026-01-08] Aggiornati riferimenti nei file di deployment:
-    - `specifications.md`: Aggiornati tutti i path da `pizzaz_server_python` a `electronics_server_python` nella sezione 9.1
+    - `specifications.md`: Aggiornati tutti i path da `pizzaz_server_python` a `gdo_server_python` nella sezione 9.1
     - Build Command e Start Command aggiornati con i nuovi path
   - Render configuration
   - Altri file di configurazione CI/CD se presenti
 
 #### 6.4.2 Documentazione
 - [x] **Aggiornare `README.md`**
-  - **Completato**: [2026-01-08] Aggiornati tutti i riferimenti da `pizzaz_server_python` a `electronics_server_python` e da "Pizzaz" a "Electronics":
-  - Sostituire riferimenti a "Pizzaz" con "Electronics"
+  - **Completato**: [2026-01-08] Aggiornati tutti i riferimenti da `pizzaz_server_python` a `gdo_server_python` e da "Pizzaz" a "GDO":
+  - Sostituire riferimenti a "Pizzaz" con "GDO"
   - Aggiornare esempi e istruzioni
 
 - [ ] **Aggiornare `specifications.md`**:
@@ -637,34 +636,33 @@ Questa sezione verifica che il progetto rispetti tutte le linee guida MCP Server
 ### 7.1 Requisiti MCP Server
 
 #### 7.1.1 Tool Definition
-- [x] **Nomi tool chiari e descrittivi**: Verificare che i nomi dei tool in `pizzaz_server_python/main.py` (da rinominare in `electronics_server_python/main.py` dopo refactoring Sezione 6) siano human-readable e specifici
-  - Nota: Il path `pizzaz_server_python` è ancora corretto perché il refactoring (Sezione 6) non è stato completato. Questo riferimento sarà aggiornato quando il refactoring sarà completato.
+- [x] **Nomi tool chiari e descrittivi**: Verificare che i nomi dei tool in `gdo_server_python/main.py` siano human-readable e specifici
 - [x] **JSON Schema input/output**: Verificare che tutti i tool abbiano schemi JSON Schema ben definiti
   - **Completato**: [2026-01-08] Tutti i tool hanno schemi JSON Schema corretti. Lo schema `EMPTY_TOOL_INPUT_SCHEMA` è usato per tutti i tool perché la maggior parte non richiede parametri di input. Questo è corretto perché:
-    - `electronics-map`, `electronics-carousel`, `electronics-albums`, `electronics-list`, `electronics-shop`: Widget di visualizzazione che non richiedono input
+    - `gdo-map`, `gdo-carousel`, `gdo-albums`, `gdo-list`, `gdo-shop`: Widget di visualizzazione che non richiedono input
     - `product-list`: Recupera prodotti da MotherDuck senza parametri (recupera tutti i prodotti)
-  - **Implementazione**: Lo schema vuoto (`EMPTY_TOOL_INPUT_SCHEMA`) è definito in `electronics_server_python/main.py` (riga 220-227) e viene usato per tutti i tool (riga 259). Se in futuro alcuni tool richiederanno input, si possono creare schemi specifici per tool.
+  - **Implementazione**: Lo schema vuoto (`EMPTY_TOOL_INPUT_SCHEMA`) è definito in `gdo_server_python/main.py` (riga 220-227) e viene usato per tutti i tool (riga 259). Se in futuro alcuni tool richiederanno input, si possono creare schemi specifici per tool.
 - [x] **Annotazioni tool**: Verificare che le annotazioni (`readOnlyHint`, `openWorldHint`, `destructiveHint`) siano corrette
   - Stato attuale: Le annotazioni sono presenti in `_list_tools()` con `readOnlyHint: True`, `destructiveHint: False`, `openWorldHint: False`
 - [x] **Descrizioni tool**: Verificare che ogni tool abbia una descrizione chiara e utile
-  - **Completato**: [2026-01-08] Tutti i tool hanno descrizioni dettagliate che spiegano cosa fanno, quando usarli e cosa restituiscono. Implementata funzione `_tool_description()` in `electronics_server_python/main.py` (riga 234-264) che fornisce descrizioni specifiche per ogni tool:
-    - `electronics-map`: Descrizione dettagliata per mappa interattiva
-    - `electronics-carousel`: Descrizione per carosello prodotti
-    - `electronics-albums`: Descrizione per galleria prodotti
-    - `electronics-list`: Descrizione per lista prodotti
-    - `electronics-shop`: Descrizione per negozio completo
+  - **Completato**: [2026-01-08] Tutti i tool hanno descrizioni dettagliate che spiegano cosa fanno, quando usarli e cosa restituiscono. Implementata funzione `_tool_description()` in `gdo_server_python/main.py` che fornisce descrizioni specifiche per ogni tool:
+    - `gdo-map`: Descrizione dettagliata per mappa interattiva
+    - `gdo-carousel`: Descrizione per carosello prodotti
+    - `gdo-albums`: Descrizione per galleria prodotti
+    - `gdo-list`: Descrizione per lista prodotti
+    - `gdo-shop`: Descrizione per negozio completo
     - `product-list`: Descrizione per recupero prodotti da MotherDuck
-  - **Implementazione**: Le descrizioni sono usate in `_list_tools()` (riga 258) invece di `widget.title`, fornendo informazioni utili per ChatGPT su quando e come usare ogni tool.
+  - **Implementazione**: Le descrizioni sono usate in `_list_tools()` invece di `widget.title`, fornendo informazioni utili per ChatGPT su quando e come usare ogni tool.
   - **Dettagli descrizioni attuali**:
-    - `pizza-map`: "Show Pizza Map" - Mostra mappa interattiva (da aggiornare a "Show Electronics Store Map")
-    - `pizza-carousel`: "Show Pizza Carousel" - Mostra carosello prodotti (da aggiornare a "Show Products Carousel")
-    - `pizza-albums`: "Show Pizza Album" - Mostra galleria prodotti (da aggiornare a "Show Products Gallery")
-    - `pizza-list`: "Show Pizza List" - Mostra lista prodotti (da aggiornare a "Show Products List")
-    - `pizza-shop`: "Open Pizzaz Shop" - Apre negozio interattivo (da aggiornare a "Open Electronics Shop")
+    - `gdo-map`: "Show GDO Map" - Mostra mappa interattiva
+    - `gdo-carousel`: "Show GDO Carousel" - Mostra carosello prodotti
+    - `gdo-albums`: "Show GDO Album" - Mostra galleria prodotti
+    - `gdo-list`: "Show GDO List" - Mostra lista prodotti
+    - `gdo-shop`: "Open GDO Shop" - Apre negozio interattivo
     - `product-list`: "List Products from MotherDuck" - Recupera prodotti da database MotherDuck
-  - **Esempi descrizioni migliorate** (da implementare):
-    - `pizza-map`: "Visualizza una mappa interattiva che mostra la posizione dei negozi di elettronica. Utile quando l'utente chiede informazioni su negozi fisici o posizioni. Restituisce widget HTML con mappa interattiva."
-    - `product-list`: "Recupera e visualizza l'elenco completo dei prodotti elettronici disponibili dal database MotherDuck. Utile quando l'utente chiede di vedere tutti i prodotti o cerca prodotti specifici. Restituisce lista prodotti con dettagli completi."
+  - **Esempi descrizioni migliorate**:
+    - `gdo-map`: "Visualizza una mappa interattiva che mostra la posizione dei negozi GDO. Utile quando l'utente chiede informazioni su negozi fisici o posizioni. Restituisce widget HTML con mappa interattiva."
+    - `product-list`: "Recupera e visualizza l'elenco completo dei prodotti GDO disponibili dal database MotherDuck. Utile quando l'utente chiede di vedere tutti i prodotti o cerca prodotti specifici. Restituisce lista prodotti con dettagli completi."
 
 #### 7.1.2 Server Capabilities - Tools
 - [x] **List Tools**: Implementato in `@mcp._mcp_server.list_tools()` (riga 224-241)
@@ -677,7 +675,7 @@ Questa sezione verifica che il progetto rispetti tutte le linee guida MCP Server
     - Activity logs sono implementati per trasparenza
   - **Documentato**: Nel README del server nella sezione "Security and Privacy" > "User Consent".
 - [x] **Activity Logs per Tools**: Considerare implementazione di log per tutte le esecuzioni tool
-  - **Completato**: [2026-01-08] Implementato logging completo per tutte le esecuzioni tool in `electronics_server_python/main.py`. Il logging include:
+  - **Completato**: [2026-01-08] Implementato logging completo per tutte le esecuzioni tool in `gdo_server_python/main.py`. Il logging include:
     - Log inizio esecuzione con tool name e arguments keys (senza dati sensibili)
     - Log successo/errore con durata dell'esecuzione
     - Log dettagliato per operazioni MotherDuck (connessione, query, risultati)
@@ -689,7 +687,7 @@ Questa sezione verifica che il progetto rispetti tutte le linee guida MCP Server
 - [x] **Read Resources**: Implementato in `_handle_read_resource()` (riga 274-293)
 - [x] **Resource Templates**: Implementato in `@mcp._mcp_server.list_resource_templates()` (riga 259-271)
 - [x] **Parameter Completion per Resource Templates**: Verificare se i resource templates supportano parameter completion
-  - **Completato**: [2026-01-08] I resource templates usano URI statici (`ui://widget/electronics-*.html`) che non richiedono parametri dinamici. Questo è appropriato per widget statici che non cambiano in base a parametri. Parameter completion non è necessario per questo caso d'uso.
+  - **Completato**: [2026-01-08] I resource templates usano URI statici (`ui://widget/gdo-*.html`) che non richiedono parametri dinamici. Questo è appropriato per widget statici che non cambiano in base a parametri. Parameter completion non è necessario per questo caso d'uso.
 - [x] **Resource Subscription**: Verificare se è necessario supportare `resources/subscribe` per monitorare cambiamenti
   - **Completato**: [2026-01-08] Resource subscription non è necessaria perché i widget sono statici (HTML pre-generato). I widget non cambiano dinamicamente, quindi non c'è bisogno di monitorare cambiamenti. Se in futuro alcuni widget diventeranno dinamici, si può valutare l'implementazione di subscription.
 
@@ -712,7 +710,7 @@ Questa sezione verifica che il progetto rispetti tutte le linee guida MCP Server
 - [x] **Resource Discovery UX**: Verificare che le risorse siano facilmente scopribili
   - **Completato**: [2026-01-08] Le risorse sono esposte correttamente tramite `list_resources()` (riga 370-381) e `list_resource_templates()` (riga 384-396). Ogni risorsa ha:
     - Nome e titolo descrittivi
-    - URI template chiaro (`ui://widget/electronics-*.html`)
+    - URI template chiaro (`ui://widget/gdo-*.html`)
     - Descrizione che spiega cosa contiene
     - MIME type corretto (`text/html+skybridge`)
   - **Nota**: ChatGPT gestisce l'UI per la discovery delle risorse (tree/list views, search, etc.). Il server fornisce tutte le informazioni necessarie tramite i metodi MCP standard. Le risorse sono facilmente scopribili perché ogni widget ha un URI template univoco e descrittivo.
@@ -730,9 +728,9 @@ Questa sezione verifica che il progetto rispetti tutte le linee guida MCP Server
 
 #### 7.1.7 Deployment
 - [x] **Dominio pubblico**: Verificare che il server sia accessibile pubblicamente (non localhost)
-  - **Completato**: [2026-01-08] Il server è configurato per deployment su Render con dominio pubblico `sdk-electronics.onrender.com`. La configurazione è documentata nella sezione 9.1 delle specifiche. Per sviluppo locale, si può usare ngrok o altri tunnel tools come documentato nel README principale.
+  - **Completato**: [2026-01-08] Il server è configurato per deployment su Render con dominio pubblico `sdk-gdo.onrender.com`. La configurazione è documentata nella sezione 9.1 delle specifiche. Per sviluppo locale, si può usare ngrok o altri tunnel tools come documentato nel README principale.
 - [x] **Content Security Policy (CSP)**: **CRITICO** - Implementare CSP header per sicurezza
-  - **Completato**: [2026-01-08] Implementato middleware CSP (`CSPMiddleware`) in `electronics_server_python/main.py` (riga 207-240). Il middleware aggiunge header CSP a tutte le risposte HTTP con policy che:
+  - **Completato**: [2026-01-08] Implementato middleware CSP (`CSPMiddleware`) in `gdo_server_python/main.py` (riga 207-240). Il middleware aggiunge header CSP a tutte le risposte HTTP con policy che:
     - Permette script e style da 'self' con 'unsafe-inline'/'unsafe-eval' (necessari per widget React e Tailwind CSS)
     - Permette immagini da 'self', data URIs, e HTTPS
     - Permette connessioni a 'self' e https://chat.openai.com
@@ -750,7 +748,7 @@ Questa sezione verifica che il progetto rispetti tutte le linee guida MCP Server
 
 #### 7.2.1 Security and Privacy
 - [x] **Least Privilege**: Verificare che il server richieda solo i permessi necessari
-  - **Completato**: [2026-01-08] Documentato nel README del server (`electronics_server_python/README.md`). Il server segue il principio di least privilege:
+  - **Completato**: [2026-01-08] Documentato nel README del server (`gdo_server_python/README.md`). Il server segue il principio di least privilege:
     - Accesso database: Solo lettura dalla tabella `prodotti_xeel_shop` (SELECT queries)
     - File system: Solo lettura da `assets/` directory (read-only)
     - Network: Solo connessione a MotherDuck (necessaria per dati prodotti)
@@ -765,7 +763,7 @@ Questa sezione verifica che il progetto rispetti tutte le linee guida MCP Server
     - Logging di argomenti inattesi per debugging
   - **Nota**: La maggior parte dei tool non richiede input (usano `EMPTY_TOOL_INPUT_SCHEMA`), quindi la validazione verifica principalmente che non vengano passati argomenti non previsti. Se in futuro alcuni tool richiederanno input, si può aggiungere validazione Pydantic specifica.
 - [x] **Audit Logs**: Considerare implementazione di log per audit
-  - **Completato**: [2026-01-08] Implementato logging completo per audit in `electronics_server_python/main.py`. I log includono:
+  - **Completato**: [2026-01-08] Implementato logging completo per audit in `gdo_server_python/main.py`. I log includono:
     - Timestamp di ogni esecuzione tool
     - Tool name e arguments keys (senza dati sensibili)
     - Successo/errore e durata esecuzione
@@ -832,7 +830,7 @@ Questa sezione verifica che il progetto rispetti tutte le linee guida MCP Server
 ### 7.3 Problemi critici da risolvere
 
 1. **Content Security Policy (CSP)**: **RISOLTO** ✅
-   - **Completato**: [2026-01-08] Implementato middleware CSP (`CSPMiddleware`) in `electronics_server_python/main.py` (riga 207-240). Il middleware aggiunge header CSP a tutte le risposte HTTP con policy che permette solo i domini necessari (`chat.openai.com`, dominio del server).
+   - **Completato**: [2026-01-08] Implementato middleware CSP (`CSPMiddleware`) in `gdo_server_python/main.py` (riga 207-240). Il middleware aggiunge header CSP a tutte le risposte HTTP con policy che permette solo i domini necessari (`chat.openai.com`, dominio del server).
 
 2. **Prompts non implementati**: **VALUTATO** - Non necessario per il caso d'uso attuale
    - **Valutato**: [2026-01-08] I Prompts non sono necessari perché i tool esistenti coprono tutte le funzionalità. I tool sono più flessibili e permettono a ChatGPT di orchestrarli in modo dinamico. I Prompts potrebbero essere aggiunti in futuro se si volessero workflow strutturati molto specifici, ma per ora non sono prioritari.
@@ -899,7 +897,7 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
 
 #### 8.2.1 Design System e UI Components
 - [x] **Utilizzo Apps SDK UI Design System**: Il progetto usa `@openai/apps-sdk-ui` per componenti
-  - **Completato**: [2026-01-08] Implementato in `src/electronics-shop/index.tsx` con `Button`, `Image` da `@openai/apps-sdk-ui/components` (riga 22-23). La build completa con successo, quindi gli import sono corretti. I componenti sono utilizzati correttamente nel widget.
+  - **Completato**: [2026-01-08] Implementato in `src/gdo-shop/index.tsx` con `Button`, `Image` da `@openai/apps-sdk-ui/components` (riga 22-23). La build completa con successo, quindi gli import sono corretti. I componenti sono utilizzati correttamente nel widget.
 - [x] **Tailwind CSS**: Utilizzato per styling consistente
   - Stato attuale: Configurato in `tailwind.config.ts` e utilizzato nei componenti
 - [x] **Accessibilità**: Verificare che tutti i componenti siano accessibili
@@ -910,18 +908,18 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
     - I bottoni di filtro hanno `aria-pressed` per indicare lo stato attivo
     - Il bottone carrello ha `aria-haspopup="dialog"` e `aria-label` dinamico con conteggio articoli
     - I bottoni disabilitati hanno `aria-disabled` appropriato
-  - File: `src/electronics-shop/index.tsx`
+  - File: `src/gdo-shop/index.tsx`
 
 #### 8.2.2 Display Modes
 - [x] **Supporto Display Modes**: Il widget supporta diversi display modes
-  - **Completato**: [2026-01-08] Implementato `useDisplayMode()` hook in `src/electronics-shop/index.tsx` (riga 367). Supporta: `inline`, `fullscreen`, `pip` (definiti in `src/types.ts`). Il widget usa display modes appropriati in base al contesto.
+  - **Completato**: [2026-01-08] Implementato `useDisplayMode()` hook in `src/gdo-shop/index.tsx` (riga 367). Supporta: `inline`, `fullscreen`, `pip` (definiti in `src/types.ts`). Il widget usa display modes appropriati in base al contesto.
 - [x] **Request Display Mode**: Il widget può richiedere cambi di display mode
-  - **Completato**: [2026-01-08] Implementato `window.openai.requestDisplayMode()` in `src/electronics-shop/index.tsx` (riga 960-963). Il widget può richiedere cambi di display mode quando necessario (es. per checkout fullscreen).
+  - **Completato**: [2026-01-08] Implementato `window.openai.requestDisplayMode()` in `src/gdo-shop/index.tsx` (riga 960-963). Il widget può richiedere cambi di display mode quando necessario (es. per checkout fullscreen).
 - [x] **Uso appropriato dei Display Modes**: Verificare che ogni widget usi il display mode più appropriato
     - `inline`: Per visualizzazione normale nella conversazione
     - `fullscreen`: Quando necessario per checkout o visualizzazione dettagliata
     - `pip`: Supportato ma non usato attivamente (può essere richiesto dall'utente)
-  - **Implementazione**: Il widget usa `useDisplayMode()` hook e `requestDisplayMode()` per gestire i display modes dinamicamente in base al contesto (riga 362, 974 in `src/electronics-shop/index.tsx`).
+  - **Implementazione**: Il widget usa `useDisplayMode()` hook e `requestDisplayMode()` per gestire i display modes dinamicamente in base al contesto (riga 362, 974 in `src/gdo-shop/index.tsx`).
 
 #### 8.2.3 UX Principles
 - [x] **Extract, Don't Port**: Verificare che il widget estragga solo le funzionalità core, non replichi l'intera applicazione
@@ -940,15 +938,15 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
 
 #### 8.2.4 Widget State Management
 - [x] **Widget State**: Implementato gestione stato widget
-  - **Completato**: [2026-01-08] Implementato `useWidgetState()` hook in `src/electronics-shop/index.tsx` (riga 370-372). Usa `window.openai.setWidgetState()` per sincronizzare stato con ChatGPT. Lo stato include `cartItems`, `selectedCartItemId`, e `state` (checkout).
+  - **Completato**: [2026-01-08] Implementato `useWidgetState()` hook in `src/gdo-shop/index.tsx` (riga 370-372). Usa `window.openai.setWidgetState()` per sincronizzare stato con ChatGPT. Lo stato include `cartItems`, `selectedCartItemId`, e `state` (checkout).
 - [x] **Widget Props**: Implementato gestione props dal tool output
-  - **Completato**: [2026-01-08] Implementato `useWidgetProps()` hook in `src/electronics-shop/index.tsx` (riga 369). Il widget riceve props da `toolOutput` e `widgetProps` che permettono a ChatGPT di passare dati strutturati al widget.
+  - **Completato**: [2026-01-08] Implementato `useWidgetProps()` hook in `src/gdo-shop/index.tsx` (riga 369). Il widget riceve props da `toolOutput` e `widgetProps` che permettono a ChatGPT di passare dati strutturati al widget.
 - [x] **State Persistence**: Verificare che lo stato persista correttamente tra le interazioni
   - **Implementazione**: Lo stato include `cartItems`, `selectedCartItemId`, e `state` (checkout) che vengono mantenuti tra le chiamate tool grazie alla sincronizzazione con `window.openai.widgetState`.
 
 #### 8.2.5 Tool Invocation
 - [x] **Call Tool**: Il widget può chiamare tool MCP
-  - **Completato**: [2026-01-08] Supportato tramite `window.openai.callTool()` (vedi `kitchen-sink-lite/kitchen-sink-lite.tsx` per esempio). Il widget `electronics-shop` non chiama tool direttamente, il che è appropriato perché ChatGPT gestisce l'orchestrazione dei tool.
+  - **Completato**: [2026-01-08] Supportato tramite `window.openai.callTool()` (vedi `kitchen-sink-lite/kitchen-sink-lite.tsx` per esempio). Il widget `gdo-shop` non chiama tool direttamente, il che è appropriato perché ChatGPT gestisce l'orchestrazione dei tool.
 - [x] **Tool Invocation dal Widget**: Verificare se il widget deve chiamare tool direttamente
     - Riceve dati da `toolOutput` quando ChatGPT chiama i tool
     - Aggiorna lo stato localmente e lo sincronizza con ChatGPT
@@ -979,7 +977,7 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
     - `useDisplayMode()`: Gestisce modalità display (inline, fullscreen, pip)
     - Tailwind responsive classes (`sm:`, `md:`) per layout responsive
     - `ResizeObserver` per adattamento dinamico del layout
-  - File: `src/media-queries.ts`, `src/use-max-height.ts`, `src/use-display-mode.ts`, `src/electronics-shop/index.tsx`
+  - File: `src/media-queries.ts`, `src/use-max-height.ts`, `src/use-display-mode.ts`, `src/gdo-shop/index.tsx`
 - [x] **Keyboard Navigation**: Verificare supporto navigazione da tastiera
   - **Completato**: [2026-01-08] Tutti i componenti interattivi supportano navigazione da tastiera:
     - Tutti i bottoni sono navigabili con Tab e attivabili con Enter/Space
@@ -988,7 +986,7 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
     - Il bottone "See all items" ha gestione `onKeyDown` per Enter/Space
     - Focus styles visibili con `focus:outline-none focus:ring-2` per indicare elemento attivo
     - I componenti `Button` di `@openai/apps-sdk-ui` gestiscono automaticamente la navigazione da tastiera
-  - File: `src/electronics-shop/index.tsx`
+  - File: `src/gdo-shop/index.tsx`
 - [ ] **Screen Reader Support**: Verificare supporto screen reader
 
 #### 8.2.8 Error Handling e User Feedback
@@ -999,14 +997,14 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
     - Gli errori sono loggati in console per debugging
     - Il widget gestisce gracefully i fallimenti delle API OpenAI senza crashare
     - I bottoni disabilitati prevengono azioni invalide (es. checkout con carrello vuoto)
-  - File: `src/electronics-shop/index.tsx`
+  - File: `src/gdo-shop/index.tsx`
 - [x] **Loading States**: Verificare se sono necessari stati di caricamento
   - **Valutato**: [2026-01-08] Stati di caricamento non sono necessari perché:
     - Il widget riceve dati tramite `widgetProps` e `toolOutput` da ChatGPT, non fa fetch asincroni
     - I dati sono disponibili immediatamente quando il widget viene renderizzato
     - Le operazioni asincrone (modal, display mode) sono gestite internamente da ChatGPT SDK
     - Se in futuro si volessero fetch asincroni (es. aggiornamento prodotti in tempo reale), si potrebbero aggiungere loading states
-  - File: `src/electronics-shop/index.tsx`
+  - File: `src/gdo-shop/index.tsx`
 - [x] **User Feedback**: Verificare che il widget fornisca feedback appropriato alle azioni utente
     - Aggiornamento visivo immediato quando si aggiunge/rimuove quantità (aggiornamento numerico)
     - Feedback visivo per filtri attivi (cambio variante bottone, `aria-pressed`)
@@ -1015,7 +1013,7 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
     - Aggiornamento dinamico del conteggio carrello nel bottone
     - Transizioni animate per cambi di stato (Framer Motion)
     - I bottoni disabilitati hanno stile visivo chiaro (opacità ridotta)
-  - File: `src/electronics-shop/index.tsx`
+  - File: `src/gdo-shop/index.tsx`
 
 ### 8.3 Problemi critici da risolvere (Client/Widget)
 
@@ -1069,32 +1067,32 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
 
 - [ ]  **Configurazione del servizio su Render**: Crea un nuovo "Web Service" su Render.
     - [ ]  **Root Directory**: Imposta la "Root Directory" alla radice del tuo repository (`.`).
-    - [ ]  **Build Command**: `pnpm install --prefix . && pnpm run build && pip install -r electronics_server_python/requirements.txt && curl -LsSf https://setup.uv.sh | sh` (Questo comando gestisce le dipendenze frontend e Python, e installa il tool `uv` come binario.)
-      - **Aggiornato**: [2026-01-08] Il Build Command è stato aggiornato a `electronics_server_python/requirements.txt` dopo il completamento del refactoring (Sezione 6).
-    - [ ]  **Start Command**: `uvicorn electronics_server_python.main:app --host 0.0.0.0 --port $PORT` (Questo comando avvia il server FastAPI personalizzato con uvicorn.)
-      - **Implementato**: [2026-01-08] Aggiunta variabile `app = mcp.sse_app()` alla fine di `electronics_server_python/main.py` per esporre l'app FastAPI per uvicorn. Il server usa FastMCP con SSE transport per compatibilità con ChatGPT SDK.
-      - **Nota**: Il comando usa `uvicorn` con il modulo `electronics_server_python.main` e la variabile `app` esposta. Il server personalizzato integra MotherDuck direttamente usando DuckDB.
+    - [ ]  **Build Command**: `pnpm install --prefix . && pnpm run build && pip install -r gdo_server_python/requirements.txt && curl -LsSf https://setup.uv.sh | sh` (Questo comando gestisce le dipendenze frontend e Python, e installa il tool `uv` come binario.)
+      - **Aggiornato**: [2026-01-08] Il Build Command è stato aggiornato a `gdo_server_python/requirements.txt` dopo il completamento del refactoring (Sezione 6).
+    - [ ]  **Start Command**: `uvicorn gdo_server_python.main:app --host 0.0.0.0 --port $PORT` (Questo comando avvia il server FastAPI personalizzato con uvicorn.)
+      - **Implementato**: [2026-01-08] Aggiunta variabile `app = mcp.sse_app()` alla fine di `gdo_server_python/main.py` per esporre l'app FastAPI per uvicorn. Il server usa FastMCP con SSE transport per compatibilità con ChatGPT SDK.
+      - **Nota**: Il comando usa `uvicorn` con il modulo `gdo_server_python.main` e la variabile `app` esposta. Il server personalizzato integra MotherDuck direttamente usando DuckDB.
       - **Verificare**: Il comando deve essere testato su Render per confermare che funziona correttamente.
-    - [ ]  **Variabili d'ambiente**: Aggiungi `MOTHERDUCK_TOKEN` (con il tuo token), `MCP_ALLOWED_HOSTS` (deve includere `sdk-electronics.onrender.com`), `MCP_ALLOWED_ORIGINS` (deve includere `https://chat.openai.com` e `https://sdk-electronics.onrender.com`) e altre variabili necessarie.
-      - **IMPORTANTE**: [2026-01-08] `MOTHERDUCK_TOKEN` è OBBLIGATORIO per il funzionamento del server. Il server DEVE avere MotherDuck configurato perché integra MotherDuck direttamente usando DuckDB per recuperare i prodotti elettronici. Senza questo token, il tool `product-list` non funzionerà.
+    - [ ]  **Variabili d'ambiente**: Aggiungi `MOTHERDUCK_TOKEN` (con il tuo token), `MCP_ALLOWED_HOSTS` (deve includere `sdk-gdo.onrender.com`), `MCP_ALLOWED_ORIGINS` (deve includere `https://chat.openai.com` e `https://sdk-gdo.onrender.com`) e altre variabili necessarie.
+      - **IMPORTANTE**: [2026-01-08] `MOTHERDUCK_TOKEN` è OBBLIGATORIO per il funzionamento del server. Il server DEVE avere MotherDuck configurato perché integra MotherDuck direttamente usando DuckDB per recuperare i prodotti GDO. Senza questo token, il tool `product-list` non funzionerà.
       - **Variabili richieste**:
         - `MOTHERDUCK_TOKEN` (OBBLIGATORIO): Token di autenticazione MotherDuck per accedere al database `app_gpt_elettronica`
-        - `MCP_ALLOWED_HOSTS`: Deve includere `sdk-electronics.onrender.com` per Transport Security
-        - `MCP_ALLOWED_ORIGINS`: Deve includere `https://chat.openai.com` e `https://sdk-electronics.onrender.com` per CORS
+        - `MCP_ALLOWED_HOSTS`: Deve includere `sdk-gdo.onrender.com` per Transport Security
+        - `MCP_ALLOWED_ORIGINS`: Deve includere `https://chat.openai.com` e `https://sdk-gdo.onrender.com` per CORS
 
 ### 9.2 Configurazione di ChatGPT
 
 - [ ]  **Creare una Custom GPT**: Seguire le istruzioni nell'interfaccia di ChatGPT per creare una nuova Custom GPT.
-- [ ]  **Configurare un'azione personalizzata**: Aggiungere un'azione al Custom GPT che punta all'URL corretto del manifest OpenAPI: `https://sdk-electronics.onrender.com/sse/openapi.json`. (L'URL include `/sse` come richiesto dall'applicazione ChatGPT SDK.)
+- [ ]  **Configurare un'azione personalizzata**: Aggiungere un'azione al Custom GPT che punta all'URL corretto del manifest OpenAPI: `https://sdk-gdo.onrender.com/sse/openapi.json`. (L'URL include `/sse` come richiesto dall'applicazione ChatGPT SDK.)
 
 ### 9.3 Adattamento degli strumenti (Tools)
 
-- [x]  **Esaminare la definizione degli strumenti nel backend Python**: Capire come gli strumenti attuali sono definiti in `electronics_server_python/main.py`.
-    - `electronics-map`: Widget mappa interattiva
-    - `electronics-carousel`: Widget carosello prodotti
-    - `electronics-albums`: Widget galleria prodotti
-    - `electronics-list`: Widget lista prodotti
-    - `electronics-shop`: Widget negozio interattivo completo
+- [x]  **Esaminare la definizione degli strumenti nel backend Python**: Capire come gli strumenti attuali sono definiti in `gdo_server_python/main.py`.
+    - `gdo-map`: Widget mappa interattiva
+    - `gdo-carousel`: Widget carosello prodotti
+    - `gdo-albums`: Widget galleria prodotti
+    - `gdo-list`: Widget lista prodotti
+    - `gdo-shop`: Widget negozio interattivo completo
     - `shopping-cart`: Widget carrello (checkout + riepilogo post-acquisto)
     - `product-list`: Tool che recupera prodotti da MotherDuck
     - `create_checkout_session`: Tool MCP che crea una Stripe Checkout Session (legacy)
@@ -1105,7 +1103,7 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
     - `checkout_complete_session`: Completa sessione checkout MCP (conferma pagamento)
 - [x]  **Modificare o creare nuovi strumenti per i prodotti elettronici**: Adattare gli strumenti esistenti o crearne di nuovi per interagire con i dati dei prodotti elettronici.
   - **Completato**: [2026-01-08] Tutti gli strumenti sono stati adattati per prodotti elettronici:
-    1. ✅ Identificatori aggiornati da `pizza-*` a `electronics-*` (completato in Sezione 6)
+    1. ✅ Identificatori aggiornati da `pizza-*` a `gdo-*` (completato in Sezione 6)
     2. ✅ Titoli e descrizioni aggiornati per riflettere prodotti elettronici (completato in Sezione 6 e 7)
     3. ✅ Tool `product-list` implementato per recuperare prodotti da MotherDuck
   - **Nota**: Tutti i tool Stripe/checkout richiedono la variabile d'ambiente `STRIPE_SECRET_KEY` sul server.
@@ -1120,18 +1118,18 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
 
 ## 10. Prompt iniziale per ChatGPT
 
-Questa sezione definisce il prompt iniziale che verrà configurato per l'assistente AI quando interagisce con l'app Electronics su ChatGPT. Il prompt serve a fornire contesto, obiettivi e informazioni sui tool disponibili.
+Questa sezione definisce il prompt iniziale che verrà configurato per l'assistente AI quando interagisce con l'app GDO su ChatGPT. Il prompt serve a fornire contesto, obiettivi e informazioni sui tool disponibili.
 
 **Stato**: [ ] Da implementare
 
-**Nota**: Questo prompt sarà creato insieme all'utente quando sarà il momento di implementarlo. Di seguito è fornita la struttura base basata sull'esempio del collega (MedicAir), da adattare al contesto Electronics.
+**Nota**: Questo prompt sarà creato insieme all'utente quando sarà il momento di implementarlo. Di seguito è fornita la struttura base basata sull'esempio del collega (MedicAir), da adattare al contesto GDO.
 
 ### 10.1 Struttura del prompt
 
 Il prompt seguirà questa struttura (da completare):
 
 ```
-Sei un assistente AI per [Nome dell'app Electronics].
+Sei un assistente AI per [Nome dell'app GDO].
 
 
 #Chi è [Nome dell'app]?
@@ -1197,13 +1195,13 @@ Per svolgere questi compiti hai a disposizione [numero] mcp server:
 Quando sarà il momento di implementare il prompt, dovranno essere chiariti i seguenti punti:
 
 #### 10.2.1 Identità e obiettivi
-- [ ] **Nome dell'app**: Qual è il nome ufficiale dell'applicazione Electronics?
+- [ ] **Nome dell'app**: Qual è il nome ufficiale dell'applicazione GDO?
 - [ ] **Chi è l'app**: Qual è la descrizione del business/servizio? (es. negozio online di elettronica, marketplace, ecc.)
 - [ ] **Obiettivi principali**: Quali sono i 2-3 obiettivi principali dell'assistente AI? (es. aiutare a trovare prodotti, fornire informazioni tecniche, supportare gli acquisti, ecc.)
 
 #### 10.2.2 Server MCP disponibili
-- [ ] **Elettronics server**: Come descrivere il server `electronics-python` e i suoi tool?
-  - Tool disponibili: `electronics-map`, `electronics-carousel`, `electronics-albums`, `electronics-list`, `electronics-shop`, `shopping-cart`, `product-list`, `create_checkout_session`, `create_payment_intent`, `confirm_payment_intent`, `checkout_create_session`, `checkout_update_session`, `checkout_complete_session`
+- [ ] **Elettronics server**: Come descrivere il server `gdo-python` e i suoi tool?
+  - Tool disponibili: `gdo-map`, `gdo-carousel`, `gdo-albums`, `gdo-list`, `gdo-shop`, `shopping-cart`, `product-list`, `create_checkout_session`, `create_payment_intent`, `confirm_payment_intent`, `checkout_create_session`, `checkout_update_session`, `checkout_complete_session`
   - Quando usare ciascun tool?
   - Qual è il flusso di interazione consigliato?
 
@@ -1222,10 +1220,10 @@ Quando sarà il momento di implementare il prompt, dovranno essere chiariti i se
 ### 10.3 Template base (da completare)
 
 ```
-Sei un assistente AI per Electronics.
+Sei un assistente AI per GDO.
 
 
-#Chi è Electronics?
+#Chi è GDO?
 [DA COMPLETARE: Descrizione del business, servizi offerti, tipologia di negozio/applicazione]
 
 
@@ -1237,14 +1235,14 @@ Sei un assistente AI per Electronics.
 
 Per svolgere questi compiti hai a disposizione il seguente MCP server: 
 
-#electronics-python
+#gdo-python
 Attraverso questo MCP server hai accesso ai seguenti tool:
 
-- **electronics-map**: [DA COMPLETARE: quando usarlo]
-- **electronics-carousel**: [DA COMPLETARE: quando usarlo]
-- **electronics-albums**: [DA COMPLETARE: quando usarlo]
-- **electronics-list**: [DA COMPLETARE: quando usarlo]
-- **electronics-shop**: [DA COMPLETARE: quando usarlo - questo è il negozio completo con carrello]
+- **gdo-map**: [DA COMPLETARE: quando usarlo]
+- **gdo-carousel**: [DA COMPLETARE: quando usarlo]
+- **gdo-albums**: [DA COMPLETARE: quando usarlo]
+- **gdo-list**: [DA COMPLETARE: quando usarlo]
+- **gdo-shop**: [DA COMPLETARE: quando usarlo - questo è il negozio completo con carrello]
 - **product-list**: [DA COMPLETARE: quando usarlo - recupera prodotti dal database MotherDuck]
 
 
@@ -1270,9 +1268,9 @@ Attraverso il tool `product-list` accederai al database '[nome-database]' con le
 
 | Domanda dell'utente | Tool da usare | Note |
 |---------------------|---------------|------|
-| "Mostrami prodotti a caso" | electronics-carousel | Visualizza in formato carosello |
-| "Voglio vedere una lista di prodotti" | electronics-list | Lista compatta |
-| "Apri il negozio completo" | electronics-shop | Negozi con carrello |
+| "Mostrami prodotti a caso" | gdo-carousel | Visualizza in formato carosello |
+| "Voglio vedere una lista di prodotti" | gdo-list | Lista compatta |
+| "Apri il negozio completo" | gdo-shop | Negozi con carrello |
 | "Cerca prodotti specifici nel database" | product-list | Con query al database |
 | [... altre esempi da aggiungere ...] | | |
 
@@ -1280,7 +1278,7 @@ Attraverso il tool `product-list` accederai al database '[nome-database]' con le
 ## NOTE IMPORTANTI
 
 ⚠️ **Widget disponibili**: I tool restituiscono widget HTML interattivi che vengono visualizzati direttamente nella chat
-⚠️ **Carrello**: Il tool `electronics-shop` include funzionalità di carrello con possibilità di aggiungere/rimuovere prodotti
+⚠️ **Carrello**: Il tool `gdo-shop` include funzionalità di carrello con possibilità di aggiungere/rimuovere prodotti
 ⚠️ **Database**: Il tool `product-list` recupera dati in tempo reale dal database MotherDuck
 ```
 
@@ -1299,11 +1297,11 @@ Attraverso il tool `product-list` accederai al database '[nome-database]' con le
 Questo prompt è pronto per essere configurato come "Initial Prompt" o "System Prompt" nella configurazione ChatGPT. Integra gli scenari di demo (Advisor per la TV e Supporto Post-Vendita) e fornisce istruzioni complete per l'uso dei tool disponibili con le categorie reali dei prodotti.
 
 ```
-Sei un assistente AI specializzato per Electronics, un negozio online di prodotti elettronici che aiuta i clienti a trovare, confrontare e acquistare dispositivi elettronici.
+Sei un assistente AI specializzato per GDO, un negozio online di prodotti elettronici che aiuta i clienti a trovare, confrontare e acquistare dispositivi elettronici.
 
-#Chi è Electronics?
+#Chi è GDO?
 
-Electronics è un negozio online specializzato in prodotti elettronici di alta qualità. Offriamo un'ampia gamma di dispositivi elettronici organizzati in tre categorie principali:
+GDO è un negozio online specializzato in prodotti elettronici di alta qualità. Offriamo un'ampia gamma di dispositivi elettronici organizzati in tre categorie principali:
 
 📺 **Video & TV**: Televisori, accessori TV, supporti TV, proiettori, lettori DVD e Blu-ray
 💻 **Informatica**: Computer desktop, monitor, tablet, stampanti e scanner, accessori PC, componenti, dispositivi di input (tastiere e mouse)
@@ -1323,19 +1321,19 @@ Il nostro obiettivo è aiutare i clienti a trovare il prodotto perfetto per le l
 
 Per svolgere questi compiti hai a disposizione il seguente MCP server:
 
-#electronics-python
+#gdo-python
 
 Attraverso questo MCP server hai accesso ai seguenti tool per visualizzare e gestire i prodotti elettronici:
 
-- **electronics-map**: Visualizza una mappa interattiva che mostra la posizione dei negozi fisici o la distribuzione geografica dei prodotti. Usalo quando l'utente chiede informazioni su negozi fisici, disponibilità locale, o posizioni ("Verifica disponibilità in negozio", "Dove posso trovare questo prodotto?"). Restituisce un widget HTML con mappa interattiva.
+- **gdo-map**: Visualizza una mappa interattiva che mostra la posizione dei negozi fisici o la distribuzione geografica dei prodotti. Usalo quando l'utente chiede informazioni su negozi fisici, disponibilità locale, o posizioni ("Verifica disponibilità in negozio", "Dove posso trovare questo prodotto?"). Restituisce un widget HTML con mappa interattiva.
 
-- **electronics-carousel**: Mostra un carosello interattivo di prodotti (massimo 12 prodotti). Usalo quando l'utente vuole sfogliare prodotti in modo visivo e coinvolgente ("Mostrami prodotti a caso", "Fammi vedere alcune opzioni"). Ideale per esplorazione casuale o quando vuoi mostrare una selezione curata di prodotti. Restituisce un widget HTML con carosello navigabile.
+- **gdo-carousel**: Mostra un carosello interattivo di prodotti (massimo 12 prodotti). Usalo quando l'utente vuole sfogliare prodotti in modo visivo e coinvolgente ("Mostrami prodotti a caso", "Fammi vedere alcune opzioni"). Ideale per esplorazione casuale o quando vuoi mostrare una selezione curata di prodotti. Restituisce un widget HTML con carosello navigabile.
 
-- **electronics-albums**: Visualizza una galleria di prodotti organizzati per categoria o tema. Usalo quando l'utente vuole vedere prodotti raggruppati per categoria ("Mostrami tutti i televisori", "Voglio vedere prodotti per gaming"). Restituisce un widget HTML con galleria organizzata.
+- **gdo-albums**: Visualizza una galleria di prodotti organizzati per categoria o tema. Usalo quando l'utente vuole vedere prodotti raggruppati per categoria ("Mostrami tutti i televisori", "Voglio vedere prodotti per gaming"). Restituisce un widget HTML con galleria organizzata.
 
-- **electronics-list**: Mostra una lista compatta di prodotti. Usalo quando l'utente vuole una vista d'insieme rapida o quando devi mostrare molti prodotti in modo efficiente ("Voglio vedere una lista di prodotti", "Mostrami tutti i prodotti disponibili"). Restituisce un widget HTML con lista scrollabile.
+- **gdo-list**: Mostra una lista compatta di prodotti. Usalo quando l'utente vuole una vista d'insieme rapida o quando devi mostrare molti prodotti in modo efficiente ("Voglio vedere una lista di prodotti", "Mostrami tutti i prodotti disponibili"). Restituisce un widget HTML con lista scrollabile.
 
-- **electronics-shop**: Apre il negozio interattivo completo con funzionalità di carrello, filtri per categoria (Video & TV, Informatica, Audio), e checkout. **USALO PRINCIPALMENTE QUANDO L'UTENTE È PRONTO AD ACQUISTARE O VUOLE GESTIRE UN CARRELLO**. Usalo quando l'utente dice "Apri il negozio", "Voglio comprare", "Aggiungi al carrello", o quando vuoi permettere all'utente di selezionare quantità e procedere al checkout. Questo è il tool più completo e include tutte le funzionalità di e-commerce. Il negozio mostra al massimo 24 prodotti alla volta per ottimizzare le prestazioni. Restituisce un widget HTML interattivo con carrello funzionante.
+- **gdo-shop**: Apre il negozio interattivo completo con funzionalità di carrello, filtri per categoria (Video & TV, Informatica, Audio), e checkout. **USALO PRINCIPALMENTE QUANDO L'UTENTE È PRONTO AD ACQUISTARE O VUOLE GESTIRE UN CARRELLO**. Usalo quando l'utente dice "Apri il negozio", "Voglio comprare", "Aggiungi al carrello", o quando vuoi permettere all'utente di selezionare quantità e procedere al checkout. Questo è il tool più completo e include tutte le funzionalità di e-commerce. Il negozio mostra al massimo 24 prodotti alla volta per ottimizzare le prestazioni. Restituisce un widget HTML interattivo con carrello funzionante.
 
 - **product-list**: Recupera l'elenco completo dei prodotti elettronici disponibili dal database MotherDuck in tempo reale. **USALO QUANDO DEVI ACCEDERE AI DATI DEI PRODOTTI PER ANALISI, CONFRONTI TECNICI, O QUANDO DEVI FILTRARE/RICERCARE PRODOTTI SPECIFICI**. Usalo quando l'utente chiede confronti tecnici dettagliati, quando devi analizzare specifiche tecniche, o quando devi cercare prodotti con caratteristiche specifiche. Restituisce dati strutturati JSON con tutti i dettagli dei prodotti (nome, prezzo, descrizione, categorie, rating, immagini, etc.).
 
@@ -1392,8 +1390,8 @@ Attraverso il tool `product-list` accederai al database `app_gpt_elettronica` co
    - Quale si vede meglio in condizioni specifiche (es. "Quale dei due si vede meglio se c'è molta luce in stanza?")
 
 4. **Fase di Disponibilità e Acquisto**: Quando l'utente è pronto ad acquistare (es. "Ok, mi hai convinto per il Samsung. È disponibile subito? Posso ordinarlo?"):
-   - Usa `electronics-map` se l'utente chiede disponibilità in negozio fisico (richiedi CAP o città)
-   - Usa `electronics-shop` per aprire il negozio completo e permettere l'acquisto
+   - Usa `gdo-map` se l'utente chiede disponibilità in negozio fisico (richiedi CAP o città)
+   - Usa `gdo-shop` per aprire il negozio completo e permettere l'acquisto
    - Simula la verifica di disponibilità: "✅ Ho verificato la disponibilità: è presente in magazzino centrale con consegna in 24/48h. Vuoi che proceda al checkout utilizzando il metodo di pagamento salvato nel tuo account?"
 
 **Esempio di conversazione**:
@@ -1404,7 +1402,7 @@ Attraverso il tool `product-list` accederai al database `app_gpt_elettronica` co
 - Utente: "Ho visto che mi hai suggerito sia l'LG C3 che il Samsung QN90C. Non capisco bene le differenze tecniche. Puoi metterli a confronto diretto? Quale dei due si vede meglio se c'è molta luce in stanza?"
 - Tu: [Crea tabella comparativa side-by-side con pro/contro tecnici]
 - Utente: "Ok, mi hai convinto per il Samsung. È disponibile subito? Posso ordinarlo?"
-- Tu: [Verifica disponibilità, apri electronics-shop per checkout]
+- Tu: [Verifica disponibilità, apri gdo-shop per checkout]
 
 ### Scenario B: Supporto Post-Vendita Proattivo
 
@@ -1437,24 +1435,24 @@ Attraverso il tool `product-list` accederai al database `app_gpt_elettronica` co
 
 | Domanda/Richiesta dell'utente | Tool da usare | Note |
 |------------------------------|---------------|------|
-| "Mostrami prodotti a caso" / "Fammi vedere alcune opzioni" | `electronics-carousel` | Visualizzazione visiva e coinvolgente (max 12 prodotti) |
-| "Voglio vedere una lista di prodotti" / "Mostrami tutti i prodotti" | `electronics-list` | Vista compatta e efficiente |
-| "Mostrami prodotti per categoria" / "Voglio vedere tutti i televisori" | `electronics-albums` | Galleria organizzata per categoria (Video & TV, Informatica, Audio) |
-| "Verifica disponibilità in negozio" / "Dove posso trovare questo prodotto?" | `electronics-map` | Mappa interattiva con posizioni |
-| "Apri il negozio" / "Voglio comprare" / "Aggiungi al carrello" | `electronics-shop` | **Negozi completo con carrello, filtri per categoria e checkout (max 24 prodotti)** |
+| "Mostrami prodotti a caso" / "Fammi vedere alcune opzioni" | `gdo-carousel` | Visualizzazione visiva e coinvolgente (max 12 prodotti) |
+| "Voglio vedere una lista di prodotti" / "Mostrami tutti i prodotti" | `gdo-list` | Vista compatta e efficiente |
+| "Mostrami prodotti per categoria" / "Voglio vedere tutti i televisori" | `gdo-albums` | Galleria organizzata per categoria (Video & TV, Informatica, Audio) |
+| "Verifica disponibilità in negozio" / "Dove posso trovare questo prodotto?" | `gdo-map` | Mappa interattiva con posizioni |
+| "Apri il negozio" / "Voglio comprare" / "Aggiungi al carrello" | `gdo-shop` | **Negozi completo con carrello, filtri per categoria e checkout (max 24 prodotti)** |
 | "Mostra il carrello" / "Voglio vedere il carrello" / "Cosa ho nel carrello?" | `shopping-cart` | Carrello condiviso con checkout e riepilogo post-acquisto |
 | "Confronta questi due modelli" / "Quali sono le differenze tecniche?" | `product-list` + tabella comparativa | Recupera dati per confronto dettagliato |
 | "Cerca prodotti con caratteristiche specifiche" / "Trova TV OLED sotto 1000€" | `product-list` | Analisi e filtri sui dati |
 | "Quale prodotto è meglio per gaming?" / Consulenza tecnica | `product-list` + widget appropriato | Analisi dati + visualizzazione |
 | "Aiuto con configurazione dispositivo" / Supporto tecnico | `product-list` (se necessario) + guida passo-passo | Riconosci prodotto e categoria, fornisci guida personalizzata |
-| "Mostrami prodotti Audio" / "Voglio vedere cuffie" | `electronics-shop` con filtro Audio | Usa il negozio con filtri per categoria |
-| "Cerco un monitor per il computer" | `product-list` + `electronics-shop` | Cerca nella categoria Informatica, poi mostra nel negozio |
+| "Mostrami prodotti Audio" / "Voglio vedere cuffie" | `gdo-shop` con filtro Audio | Usa il negozio con filtri per categoria |
+| "Cerco un monitor per il computer" | `product-list` + `gdo-shop` | Cerca nella categoria Informatica, poi mostra nel negozio |
 
 ## NOTE IMPORTANTI
 
-⚠️ **Widget Interattivi**: I tool `electronics-map`, `electronics-carousel`, `electronics-albums`, `electronics-list`, e `electronics-shop` restituiscono widget HTML interattivi che vengono visualizzati direttamente nella chat. Questi widget permettono all'utente di interagire visivamente con i prodotti.
+⚠️ **Widget Interattivi**: I tool `gdo-map`, `gdo-carousel`, `gdo-albums`, `gdo-list`, e `gdo-shop` restituiscono widget HTML interattivi che vengono visualizzati direttamente nella chat. Questi widget permettono all'utente di interagire visivamente con i prodotti.
 
-⚠️ **Carrello e Checkout**: Il tool `electronics-shop` include funzionalità complete di carrello con possibilità di aggiungere/rimuovere prodotti, selezionare quantità, filtrare per categoria (Video & TV, Informatica, Audio), e procedere al checkout. Usalo quando l'utente è pronto ad acquistare. Il widget `shopping-cart` completa il pagamento simulato, **svuota il carrello** e mostra un **riepilogo post-acquisto** con prodotti, totali, dati fattura e data di consegna. Il pulsante "Procedi al pagamento" apre una **modale** per inserire i dati di fatturazione. I prezzi includono IVA; la spedizione è mostrata nel carrello (gratis sopra 50€).
+⚠️ **Carrello e Checkout**: Il tool `gdo-shop` include funzionalità complete di carrello con possibilità di aggiungere/rimuovere prodotti, selezionare quantità, filtrare per categoria (Video & TV, Informatica, Audio), e procedere al checkout. Usalo quando l'utente è pronto ad acquistare. Il widget `shopping-cart` completa il pagamento simulato, **svuota il carrello** e mostra un **riepilogo post-acquisto** con prodotti, totali, dati fattura e data di consegna. Il pulsante "Procedi al pagamento" apre una **modale** per inserire i dati di fatturazione. I prezzi includono IVA; la spedizione è mostrata nel carrello (gratis sopra 50€).
 
 ⚠️ **Database in Tempo Reale**: Il tool `product-list` recupera dati in tempo reale dal database MotherDuck (`app_gpt_elettronica`). I dati sono sempre aggiornati e includono tutti i dettagli tecnici necessari per confronti e analisi.
 
@@ -1464,8 +1462,8 @@ Attraverso il tool `product-list` accederai al database `app_gpt_elettronica` co
 - **🔊 Audio**: Altoparlanti, cuffie, audio wireless/Bluetooth, home theater, microfoni, amplificatori
 
 ⚠️ **Limiti di Visualizzazione**: 
-- Il carosello (`electronics-carousel`) mostra al massimo 12 prodotti
-- Il negozio (`electronics-shop`) mostra al massimo 24 prodotti alla volta
+- Il carosello (`gdo-carousel`) mostra al massimo 12 prodotti
+- Il negozio (`gdo-shop`) mostra al massimo 24 prodotti alla volta
 - Questi limiti migliorano le prestazioni e l'esperienza utente
 
 ⚠️ **Confronti Tecnici**: Quando crei confronti tecnici, usa sempre `product-list` per recuperare i dati completi e crea tabelle comparative side-by-side chiare che mostrino pro e contro di ciascun modello.
@@ -1474,7 +1472,7 @@ Attraverso il tool `product-list` accederai al database `app_gpt_elettronica` co
 
 ⚠️ **Domande di Qualificazione**: Quando un cliente chiede consigli su un prodotto, fai sempre domande di qualificazione mirate (budget, utilizzo, spazio, condizioni) prima di suggerire modelli. Questo ti permette di fornire consigli più accurati e personalizzati.
 
-⚠️ **Chiusura Transazionale**: Quando l'utente è pronto ad acquistare, verifica sempre la disponibilità e suggerisci di procedere al checkout. Usa `electronics-shop` per aprire il negozio completo e permettere l'acquisto.
+⚠️ **Chiusura Transazionale**: Quando l'utente è pronto ad acquistare, verifica sempre la disponibilità e suggerisci di procedere al checkout. Usa `gdo-shop` per aprire il negozio completo e permettere l'acquisto.
 ```
 
 **Note per l'uso**:
@@ -1495,10 +1493,10 @@ Questa sezione documenta le migliorie implementate per migliorare l'esperienza u
 - [x] **Implementazione filtri dinamici per categoria**: Sostituiti i filtri hardcoded (vegetarian, vegan, size, spicy) con filtri dinamici basati sulle categorie reali dei prodotti elettronici.
   - **Completato**: [2026-01-09] Implementato sistema di filtri dinamici che estrae automaticamente le categorie disponibili dai prodotti.
   - **Implementazione**:
-    1. ✅ **Mappa categorie** (`src/electronics-shop/index.tsx`):
+    1. ✅ **Mappa categorie** (`src/gdo-shop/index.tsx`):
        - Creata `CATEGORY_MAPPING` che mappa categorie principali (TV & Video, Audio & Speakers, Computers, Storage, Accessories) ai loro tag associati
        - Ogni categoria ha una lista di tag che vengono cercati nei prodotti
-    2. ✅ **Funzione di estrazione categorie** (`src/electronics-shop/index.tsx`):
+    2. ✅ **Funzione di estrazione categorie** (`src/gdo-shop/index.tsx`):
        - Creata funzione `getAvailableCategories()` che:
          - Analizza tutti i prodotti e conta quanti appartengono a ciascuna categoria
          - Crea filtri solo per categorie che hanno almeno un prodotto
@@ -1523,16 +1521,16 @@ Questa sezione documenta le migliorie implementate per migliorare l'esperienza u
     - Audio & Speakers: prodotti con tag "audio", "speakers", "home audio", "stereos", "bluetooth speakers", etc.
     - Computers: prodotti con tag "computers", "computer accessories", "laptops", "tablets", etc.
     - Storage: prodotti con tag "storage", "hard drives", "ssd", "hdd", "nas", etc.
-    - Accessories: prodotti con tag "accessories", "electronics accessories", "cables", "adapters", etc.
+    - Accessories: prodotti con tag "accessories", "gdo accessories", "cables", "adapters", etc.
   - **File modificati**:
-    - `src/electronics-shop/index.tsx`: Aggiunta `CATEGORY_MAPPING`, `getAvailableCategories()`, aggiornata logica filtri e rendering
+    - `src/gdo-shop/index.tsx`: Aggiunta `CATEGORY_MAPPING`, `getAvailableCategories()`, aggiornata logica filtri e rendering
 
 ### 11.2 Limite di prodotti visualizzati
 
 - [x] **Implementazione limite prodotti nello shop**: Aggiunto limite massimo di prodotti visualizzati nello shop per migliorare le prestazioni.
   - **Completato**: [2026-01-09] Implementato limite di 24 prodotti nello shop.
   - **Implementazione**:
-    1. ✅ **Costante limite** (`src/electronics-shop/index.tsx`):
+    1. ✅ **Costante limite** (`src/gdo-shop/index.tsx`):
        - Aggiunta costante `MAX_PRODUCTS_SHOP = 24` per definire il limite massimo
     2. ✅ **Lista prodotti limitata**:
        - Creato `displayedCartItems` con `useMemo` che limita `visibleCartItems` ai primi 24 prodotti
@@ -1547,12 +1545,12 @@ Questa sezione documenta le migliorie implementate per migliorare l'esperienza u
     - ✅ Caricamento più veloce: ridotto il tempo di rendering iniziale
     - ✅ Esperienza utente migliore: interfaccia più reattiva
   - **File modificati**:
-    - `src/electronics-shop/index.tsx`: Aggiunta `MAX_PRODUCTS_SHOP`, creato `displayedCartItems`, aggiornato rendering e layout effect
+    - `src/gdo-shop/index.tsx`: Aggiunta `MAX_PRODUCTS_SHOP`, creato `displayedCartItems`, aggiornato rendering e layout effect
 
 - [x] **Implementazione limite prodotti nel carosello**: Aggiunto limite massimo di prodotti visualizzati nel carosello per migliorare le prestazioni.
   - **Completato**: [2026-01-09] Implementato limite di 12 prodotti nel carosello.
   - **Implementazione**:
-    1. ✅ **Costante limite** (`src/electronics-carousel/index.jsx`):
+    1. ✅ **Costante limite** (`src/gdo-carousel/index.jsx`):
        - Aggiunta costante `MAX_PRODUCTS_CAROUSEL = 12` per definire il limite massimo
     2. ✅ **Lista prodotti limitata**:
        - Modificato `places` per limitare l'array ai primi 12 prodotti usando `.slice(0, MAX_PRODUCTS_CAROUSEL)`
@@ -1562,7 +1560,7 @@ Questa sezione documenta le migliorie implementate per migliorare l'esperienza u
     - ✅ Navigazione più fluida: carosello più leggero e reattivo
     - ✅ Esperienza utente migliore: caricamento più veloce
   - **File modificati**:
-    - `src/electronics-carousel/index.jsx`: Aggiunta `MAX_PRODUCTS_CAROUSEL`, limitato array `places`
+    - `src/gdo-carousel/index.jsx`: Aggiunta `MAX_PRODUCTS_CAROUSEL`, limitato array `places`
   - **Note**:
     - I limiti sono configurabili modificando le costanti `MAX_PRODUCTS_SHOP` e `MAX_PRODUCTS_CAROUSEL` all'inizio dei rispettivi file
     - I limiti vengono applicati dopo il filtraggio (se applicabile), quindi se ci sono filtri attivi, vengono mostrati fino a 24 prodotti filtrati nello shop e fino a 12 nel carosello
@@ -1572,16 +1570,16 @@ Questa sezione documenta le migliorie implementate per migliorare l'esperienza u
 - [x] **Spazio laterale per evitare taglio prima card**: Aggiunto padding orizzontale al wrapper delle card del carosello per evitare che la prima card venga tagliata a sinistra su desktop e mobile.
   - **Completato**: [2026-01-15] Aggiunto `px-4` al container flex delle card.
   - **Implementazione**:
-    - Aggiornato il wrapper delle card in `src/electronics-carousel/index.jsx` per aggiungere padding orizzontale costante.
+    - Aggiornato il wrapper delle card in `src/gdo-carousel/index.jsx` per aggiungere padding orizzontale costante.
   - **File modificati**:
-    - `src/electronics-carousel/index.jsx`
+    - `src/gdo-carousel/index.jsx`
 
 - [x] **Riga prezzo dedicata nelle card del carosello**: Mostrato il prezzo in una riga separata sotto il nome per migliorarne la leggibilità.
   - **Completato**: [2026-01-15] Aggiunta riga prezzo con stile dedicato.
   - **Implementazione**:
-    - Inserita riga prezzo condizionale (`place.price`) sotto il nome in `src/electronics-carousel/PlaceCard.jsx`.
+    - Inserita riga prezzo condizionale (`place.price`) sotto il nome in `src/gdo-carousel/PlaceCard.jsx`.
   - **File modificati**:
-    - `src/electronics-carousel/PlaceCard.jsx`
+    - `src/gdo-carousel/PlaceCard.jsx`
 
 ### 11.4 Pulizia warning TypeScript
 
@@ -1622,11 +1620,11 @@ Questa sezione documenta le migliorie implementate per migliorare l'esperienza u
 - [x] **Totali senza IVA esplicita**: L'IVA è considerata inclusa nei prezzi di listino; il carrello non aggiunge IVA al totale.
   - **Completato**: [2026-01-16] Rimossa IVA dal calcolo dei totali, mantenuta la spedizione.
   - **Implementazione**:
-    1. ✅ **Backend**: Calcolo dei totali con `tax = 0` in `electronics_server_python/main.py`.
+    1. ✅ **Backend**: Calcolo dei totali con `tax = 0` in `gdo_server_python/main.py`.
     2. ✅ **Frontend**: Totali e riepilogo senza riga IVA in `src/shopping-cart/index.tsx`.
     3. ✅ **Messaggio cliente**: Spedizione mostrata nel carrello con nota "IVA inclusa".
   - **File modificati**:
-    - `electronics_server_python/main.py`
+    - `gdo_server_python/main.py`
     - `src/shopping-cart/index.tsx`
 
 - [x] **Compatibilità import JSX in TSX**: Garantita la risoluzione dei componenti `.jsx` importati in file TypeScript.
@@ -1643,7 +1641,7 @@ Questa sezione documenta le migliorie implementate per migliorare l'esperienza u
 - [x] **Separazione visiva delle card**: aggiunta ombreggiatura e hover per distinguere meglio le card nel carosello.
   - **Completato**: [2026-01-15]
   - **Implementazione**:
-    - `src/electronics-carousel/PlaceCard.jsx`: aggiunte classi `bg-white`, `rounded-2xl`, `ring-1 ring-black/5`, `shadow[...]`, `transition-shadow`, `hover:shadow[...]`
+    - `src/gdo-carousel/PlaceCard.jsx`: aggiunte classi `bg-white`, `rounded-2xl`, `ring-1 ring-black/5`, `shadow[...]`, `transition-shadow`, `hover:shadow[...]`
   - **Vantaggi**:
     - ✅ Card più distinguibili tra loro
     - ✅ Maggiore profondità visiva durante lo scroll
@@ -1651,4 +1649,4 @@ Questa sezione documenta le migliorie implementate per migliorare l'esperienza u
 - [x] **Prezzo evidenziato nella card**: aggiunta una riga prezzo sotto il nome prodotto quando disponibile.
   - **Completato**: [2026-01-15]
   - **Implementazione**:
-    - `src/electronics-carousel/PlaceCard.jsx`: rendering condizionale di `place.price` con stile `text-sm font-semibold`
+    - `src/gdo-carousel/PlaceCard.jsx`: rendering condizionale di `place.price` con stile `text-sm font-semibold`

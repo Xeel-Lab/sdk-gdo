@@ -140,7 +140,7 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("electronics-carousel-root")).render(<App />);
+createRoot(document.getElementById("gdo-carousel-root")).render(<App />);
 
 export { App };
 export default App;

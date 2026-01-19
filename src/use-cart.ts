@@ -8,7 +8,7 @@ type CartWidgetState = {
   [key: string]: unknown;
 };
 
-// Chiave specifica per il carrello condiviso tra widget (diversa da electronics-shop)
+// Chiave specifica per il carrello condiviso tra widget (diversa da gdo-shop)
 const CART_STATE_KEY = "sharedCartItems";
 
 const createDefaultCartState = (): CartWidgetState => ({
@@ -21,7 +21,7 @@ const createDefaultCartState = (): CartWidgetState => ({
  */
 export function useCart() {
   // IMPORTANTE: Il carrello parte SEMPRE vuoto e legge SOLO dalla chiave specifica "sharedCartItems"
-  // Ignora completamente qualsiasi altro dato in widgetState (es. da electronics-shop)
+  // Ignora completamente qualsiasi altro dato in widgetState (es. da gdo-shop)
   // Usa useOpenAiGlobal per reagire ai cambiamenti di widgetState
   const widgetStateGlobal = useOpenAiGlobal("widgetState") as Record<string, unknown> | null;
   

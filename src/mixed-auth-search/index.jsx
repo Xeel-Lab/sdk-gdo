@@ -9,8 +9,8 @@ import { AnimatePresence } from "framer-motion";
 import ProductDetails from "../utils/ProductDetails";
 
 function App() {
-  // Note: This widget is for electronics search
-  // Uses electronics-specific props
+  // Note: This widget is for GDO search
+  // Uses GDO-specific props
   const { searchTerm = "" } = useWidgetProps({ searchTerm: "" });
   const searchLabel = String(searchTerm || "").trim();
   // Leggi dati da toolOutput (popolato dal server quando recupera dati da MotherDuck)
@@ -50,7 +50,7 @@ function App() {
             <Flame strokeWidth={1.5} className="h-5 w-5" />
           </div>
           <div className="min-w-0">
-            <div className="text-base font-semibold">Electronics spotlights</div>
+            <div className="text-base font-semibold">GDO spotlights</div>
             <div className="text-sm text-black/60">
               {searchLabel
                 ? `Search results for: ${searchLabel}`
@@ -71,10 +71,10 @@ function App() {
         <div className="overflow-hidden" ref={emblaRef}>
           <div className="flex gap-4 items-stretch">
             {places.map((place, index) => (
-              <SliceCard 
-                key={place.id} 
-                place={place} 
-                index={index} 
+              <SliceCard
+                key={place.id}
+                place={place}
+                index={index}
                 onCardClick={setSelectedPlace}
               />
             ))}

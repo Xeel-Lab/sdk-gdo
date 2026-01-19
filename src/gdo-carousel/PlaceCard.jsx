@@ -1,7 +1,7 @@
 import React from "react";
 import { Star, ShoppingCart } from "lucide-react";
 import { Button } from "@openai/apps-sdk-ui/components/Button";
-import SafeImage from "../electronics/SafeImage";
+import SafeImage from "../gdo/SafeImage";
 import { useProxyBaseUrl } from "../use-proxy-base-url";
 import { useCart } from "../use-cart";
 

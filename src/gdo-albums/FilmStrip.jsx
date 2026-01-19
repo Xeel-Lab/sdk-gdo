@@ -1,5 +1,5 @@
 import React from "react";
-import SafeImage from "../electronics/SafeImage";
+import SafeImage from "../gdo/SafeImage";
 
 export default function FilmStrip({ album, selectedIndex, onSelect, proxyBaseUrl }) {
   return (

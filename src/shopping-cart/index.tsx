@@ -17,7 +17,7 @@ const iconMatchers = [
 function App() {
   // IMPORTANTE: shopping-cart usa useCart che gestisce il carrello condiviso tramite la chiave specifica "sharedCartItems"
   // Questo garantisce che il carrello mostri SOLO i prodotti aggiunti tramite i pulsanti "Aggiungi al carrello"
-  // Ignora completamente qualsiasi altro dato in widgetState (es. da electronics-shop)
+  // Ignora completamente qualsiasi altro dato in widgetState (es. da gdo-shop)
   const { cartItems, addToCart, removeFromCart, clearCart } = useCart();
   const [selectedItem, setSelectedItem] = useState<CartItem | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(false);

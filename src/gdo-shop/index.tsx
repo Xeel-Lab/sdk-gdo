@@ -24,21 +24,21 @@ import { Button } from "@openai/apps-sdk-ui/components/Button";
 import { Image } from "@openai/apps-sdk-ui/components/Image";
 import type { CartItem, NutritionFact } from "../types";
 
-type ElectronicsCartWidgetState = {
+type GdoCartWidgetState = {
   state?: "checkout" | null;
   cartItems?: CartItem[];
   selectedCartItemId?: string | null;
 };
 
-type ElectronicsCartWidgetProps = {
+type GdoCartWidgetProps = {
   cartItems?: CartItem[];
-  widgetState?: Partial<ElectronicsCartWidgetState> | null;
+  widgetState?: Partial<GdoCartWidgetState> | null;
 };
 
 const SERVICE_FEE = 3;
 const DELIVERY_FEE = 2.99;
 const TAX_FEE = 3.4;
-const CONTINUE_TO_PAYMENT_EVENT = "electronics-shop:continue-to-payment";
+const CONTINUE_TO_PAYMENT_EVENT = "gdo-shop:continue-to-payment";
 const MAX_PRODUCTS_SHOP = 24; // Limite massimo di prodotti da visualizzare nello shop
 
 // Mappa delle categorie principali con i loro tag associati
@@ -263,7 +263,7 @@ const cloneCartItem = (item: CartItem): CartItem => ({
 const createDefaultCartItems = (): CartItem[] =>
   NEW_INITIAL_CART_ITEMS.map((item) => cloneCartItem(item));
 
-const createDefaultWidgetState = (): ElectronicsCartWidgetState => ({
+const createDefaultWidgetState = (): GdoCartWidgetState => ({
   state: null,
   cartItems: createDefaultCartItems(),
   selectedCartItemId: null,
@@ -568,8 +568,8 @@ function App() {
   const maxHeight = useMaxHeight() ?? undefined;
   const displayMode = useDisplayMode();
   const isFullscreen = displayMode === "fullscreen";
-  const widgetProps = useWidgetProps<ElectronicsCartWidgetProps>(() => ({}));
-  const [widgetState, setWidgetState] = useWidgetState<ElectronicsCartWidgetState>(
+  const widgetProps = useWidgetProps<GdoCartWidgetProps>(() => ({}));
+  const [widgetState, setWidgetState] = useWidgetState<GdoCartWidgetState>(
     createDefaultWidgetState
   );
   const navigate = useNavigate();
@@ -741,7 +741,7 @@ function App() {
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
 
   const updateWidgetState = useCallback(
-    (partial: Partial<ElectronicsCartWidgetState>) => {
+    (partial: Partial<GdoCartWidgetState>) => {
       setWidgetState((previous) => ({
         ...createDefaultWidgetState(),
         ...(previous ?? {}),
@@ -1309,7 +1309,7 @@ function App() {
         </header>
       )}
 
-      <LayoutGroup id="electronics-grid">
+      <LayoutGroup id="gdo-grid">
         <div
           ref={cartGridRef}
           className={clsx(
@@ -1625,7 +1625,7 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("electronics-shop-root")!).render(
+createRoot(document.getElementById("gdo-shop-root")!).render(
   <BrowserRouter>
     <App />
   </BrowserRouter>

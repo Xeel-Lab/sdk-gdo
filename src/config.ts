@@ -1,5 +1,5 @@
 /**
- * Global configuration for the electronics SDK.
+ * Global configuration for the GDO SDK.
  * 
  * This file contains configuration that can be used across the application,
  * including server URLs, API endpoints, and other global settings.
@@ -9,27 +9,27 @@
  * Gets the server base URL for API calls and proxy endpoints.
  * 
  * Priority order:
- * 1. window.__ELECTRONICS_SERVER_URL__ (injected at runtime, e.g., from HTML meta tag)
+ * 1. window.__GDO_SERVER_URL__ (injected at runtime, e.g., from HTML meta tag)
  * 2. BASE_URL from environment (for build-time configuration)
  * 3. Deduced from script sources or window.location
  * 4. Empty string (relative URLs)
  */
 export function getServerBaseUrl(): string {
   // Check for runtime injection (can be set via meta tag or script tag in HTML)
-  if (typeof window !== "undefined" && (window as any).__ELECTRONICS_SERVER_URL__) {
-    const injected = (window as any).__ELECTRONICS_SERVER_URL__;
+  if (typeof window !== "undefined" && (window as any).__GDO_SERVER_URL__) {
+    const injected = (window as any).__GDO_SERVER_URL__;
     return injected;
   }
 
-  // Check for script source that looks like our server (electronics-carousel, etc.)
+  // Check for script source that looks like our server (gdo-carousel, etc.)
   if (typeof document !== "undefined") {
     const scripts = document.getElementsByTagName("script");
     for (let script of scripts) {
       if (script.src) {
         try {
           const url = new URL(script.src);
-          // Check if it's from our server (contains /assets/ or electronics in path)
-          if (url.pathname.includes("/assets/") || url.pathname.includes("electronics")) {
+          // Check if it's from our server (contains /assets/ or gdo in path)
+          if (url.pathname.includes("/assets/") || url.pathname.includes("gdo")) {
             return url.origin;
           }
         } catch (e) {

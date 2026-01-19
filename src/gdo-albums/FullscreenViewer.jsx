@@ -2,7 +2,7 @@ import React from "react";
 import { ShoppingCart } from "lucide-react";
 import { useMaxHeight } from "../use-max-height";
 import FilmStrip from "./FilmStrip";
-import SafeImage from "../electronics/SafeImage";
+import SafeImage from "../gdo/SafeImage";
 import { useProxyBaseUrl } from "../use-proxy-base-url";
 import { useCart } from "../use-cart";
 import { Button } from "@openai/apps-sdk-ui/components/Button";

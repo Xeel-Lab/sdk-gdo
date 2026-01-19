@@ -151,7 +151,7 @@ function App() {
   );
 }
 
-createRoot(document.getElementById("electronics-albums-root")).render(<App />);
+createRoot(document.getElementById("gdo-albums-root")).render(<App />);
 
 export { App };
 export default App;

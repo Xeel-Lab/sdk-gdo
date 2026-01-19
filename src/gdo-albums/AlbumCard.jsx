@@ -1,6 +1,6 @@
 import React from "react";
 import { Button } from "@openai/apps-sdk-ui/components/Button";
-import SafeImage from "../electronics/SafeImage";
+import SafeImage from "../gdo/SafeImage";
 import { Badge } from "@openai/apps-sdk-ui/components/Badge";
 import { useProxyBaseUrl } from "../use-proxy-base-url";
 

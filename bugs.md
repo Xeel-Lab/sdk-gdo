@@ -1,6 +1,6 @@
-# Bug e Verifiche - Electronics SDK
+# Bug e Verifiche - GDO SDK
 
-Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche da fare per il progetto Electronics SDK.
+Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche da fare per il progetto GDO SDK.
 
 ## Regole di processo per la gestione dei bug
 
@@ -30,21 +30,21 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
 ## Bug trovati
 
 ### CORS Error - UI non si carica
-- [x] **Bug CORS - Access-Control-Allow-Origin mancante**: [2026-01-08] Il widget non si caricava quando veniva renderizzato da ChatGPT. Il browser bloccava il caricamento di risorse JavaScript e CSS a causa di una policy CORS. L'errore specifico era: "CORS policy blocking" o "Access-Control-Allow-Origin header was missing" quando si tentava di caricare `https://sdk-electronics.onrender.com/assets/electronics-carousel-2d2b.js` da origine `https://connector...web-sandbox.oaiusercontent.com`.
+- [x] **Bug CORS - Access-Control-Allow-Origin mancante**: [2026-01-08] Il widget non si caricava quando veniva renderizzato da ChatGPT. Il browser bloccava il caricamento di risorse JavaScript e CSS a causa di una policy CORS. L'errore specifico era: "CORS policy blocking" o "Access-Control-Allow-Origin header was missing" quando si tentava di caricare `https://sdk-gdo.onrender.com/assets/gdo-carousel-2d2b.js` da origine `https://connector...web-sandbox.oaiusercontent.com`.
   - **Come si manifesta**: Il widget non si carica, le risorse JS e CSS vengono bloccate dal browser con errori CORS nella console.
-  - **Sezione correlata**: Server Python - Middleware CORS in `electronics_server_python/main.py`
+  - **Sezione correlata**: Server Python - Middleware CORS in `gdo_server_python/main.py`
   - **Stato**: ✅ Risolto (vedi sezione "Bug risolti")
 
 ### Asset Path - Path degli asset non corretti in produzione
 - [x] **Bug Asset Path - Path degli asset non corretti quando deployato**: [2026-01-08] Quando il server era deployato su Render invece che in locale, i path degli asset (JS, CSS) nell'HTML generato puntavano a `http://localhost:4444/` invece che al dominio di produzione. Questo causava il mancato caricamento delle risorse quando i widget venivano renderizzati da ChatGPT.
   - **Come si manifesta**: Le risorse JS e CSS non si caricano, i widget non funzionano correttamente quando il server è deployato su un dominio diverso da localhost.
-  - **Sezione correlata**: Server Python - Funzione `_handle_read_resource` in `electronics_server_python/main.py`
+  - **Sezione correlata**: Server Python - Funzione `_handle_read_resource` in `gdo_server_python/main.py`
   - **Stato**: ✅ Risolto (vedi sezione "Bug risolti")
 
 ### CSP Header - h11 rifiuta header CSP
 - [x] **Bug CSP Header - h11 rifiuta header Content-Security-Policy**: [2026-01-08] La libreria h11 (usata da uvicorn) è molto rigorosa nella validazione degli header HTTP e potrebbe rifiutare l'header `Content-Security-Policy` se non è formattato correttamente. Questo causava errori nel server quando si tentava di aggiungere l'header CSP.
   - **Come si manifesta**: Errori nel server quando si tenta di aggiungere l'header CSP, possibili problemi di sicurezza se CSP non viene applicato.
-  - **Sezione correlata**: Server Python - `CSPMiddleware` in `electronics_server_python/main.py`
+  - **Sezione correlata**: Server Python - `CSPMiddleware` in `gdo_server_python/main.py`
   - **Stato**: ✅ Risolto (vedi sezione "Bug risolti")
 
 ### 2.2 Compatibilità dei tipi `CartItem`
@@ -54,13 +54,13 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
   - **Stato**: ✅ Risolto (vedi sezione "Bug risolti")
 
 ### Immagine Blob Storage non accessibile
-- [x] **Bug Immagine Blob Storage - Immagine con permessi negati**: [2026-01-08] L'immagine `img-Ywf9b6rLPQ5YM0rZh2NQEkp8.png` da Azure Blob Storage in `src/electronics/markers.json` (riga 11) non è accessibile, causando errori 409 (Conflict) e "access is not permitted on this storage account" nella console del browser. Questo impedisce il caricamento completo del widget.
+- [x] **Bug Immagine Blob Storage - Immagine con permessi negati**: [2026-01-08] L'immagine `img-Ywf9b6rLPQ5YM0rZh2NQEkp8.png` da Azure Blob Storage in `src/gdo/markers.json` (riga 11) non è accessibile, causando errori 409 (Conflict) e "access is not permitted on this storage account" nella console del browser. Questo impedisce il caricamento completo del widget.
   - **Come si manifesta**: L'immagine non si carica, errore 409 nella Network tab, errore di permessi nella console. Il widget viene visualizzato solo parzialmente.
-  - **Sezione correlata**: `src/electronics/markers.json` - primo elemento "avatar-way-of-water"
+  - **Sezione correlata**: `src/gdo/markers.json` - primo elemento "avatar-way-of-water"
   - **Stato**: ✅ Risolto (vedi sezione "Bug risolti")
 
 ### Immagini bloccate da ORB (Opaque Response Blocking)
-- [x] **Bug ORB - Immagini electronics-*.png bloccate**: [2026-01-08] Le immagini `electronics-1.png`, `electronics-2.png`, `electronics-3.png`, `electronics-4.png`, `electronics-5.png`, `electronics-6.png` da `https://persistent.oaistatic.com/electronics/` vengono bloccate dal browser con errore `ERR_BLOCKED_BY_ORB` (Opaque Response Blocking). Questo è un meccanismo di sicurezza del browser che blocca risposte opache cross-origin, causando il mancato caricamento delle immagini nel widget.
+- [x] **Bug ORB - Immagini gdo-*.png bloccate**: [2026-01-08] Le immagini `gdo-1.png`, `gdo-2.png`, `gdo-3.png`, `gdo-4.png`, `gdo-5.png`, `gdo-6.png` da `https://persistent.oaistatic.com/gdo/` vengono bloccate dal browser con errore `ERR_BLOCKED_BY_ORB` (Opaque Response Blocking). Questo è un meccanismo di sicurezza del browser che blocca risposte opache cross-origin, causando il mancato caricamento delle immagini nel widget.
   - **Come si manifesta**: Le immagini non si caricano, errore `ERR_BLOCKED_BY_ORB` nella Network tab. Il widget viene visualizzato solo parzialmente senza immagini.
   - **Sezione correlata**: Tutti i componenti che usano immagini: `PlaceCard.jsx`, `Inspector.jsx`, `AlbumCard.jsx`, `FullscreenViewer.jsx`, `FilmStrip.jsx`, `Sidebar.jsx`
   - **Stato**: ✅ Risolto (vedi sezione "Bug risolti")
@@ -68,25 +68,25 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
 ### File .env non trovato dal server Python
 - [x] **Bug .env - File .env non caricato correttamente**: [2026-01-09] Il server Python non riusciva a trovare il file `.env` nella root del progetto quando veniva eseguito. Il problema era che `load_dotenv()` cercava il file nella directory corrente di lavoro invece che nella root del progetto, causando errori quando il server veniva eseguito da directory diverse.
   - **Come si manifesta**: Il server Python non legge le variabili d'ambiente dal file `.env`, causando errori come "MOTHERDUCK_TOKEN non trovato" anche se il file `.env` esiste. Questo causa il fallimento della connessione a MotherDuck.
-  - **Sezione correlata**: `electronics_server_python/main.py` - caricamento variabili d'ambiente (riga 23)
+  - **Sezione correlata**: `gdo_server_python/main.py` - caricamento variabili d'ambiente (riga 23)
   - **Stato**: ✅ Risolto (vedi sezione "Bug risolti")
 
 ### MOTHERDUCK_TOKEN non configurato nel file .env
 - [x] **Bug .env - MOTHERDUCK_TOKEN mancante**: [2026-01-09] Il file `.env` conteneva `MOTHERDUCK_KEY` ma il codice Python cercava `MOTHERDUCK_TOKEN`. Questo causava errori di configurazione quando il server tentava di connettersi a MotherDuck, anche se il file `.env` veniva caricato correttamente.
   - **Come si manifesta**: Errori nei log del server: "MotherDuck configuration error: MOTHERDUCK_TOKEN non trovato nelle variabili d'ambiente". Il server restituisce 0 prodotti dal database anche se il token è presente ma con un nome diverso.
-  - **Sezione correlata**: `electronics_server_python/main.py` - funzione `get_motherduck_connection()` (riga 80), file `.env` nella root del progetto
+  - **Sezione correlata**: `gdo_server_python/main.py` - funzione `get_motherduck_connection()` (riga 80), file `.env` nella root del progetto
   - **Stato**: ✅ Risolto (vedi sezione "Bug risolti")
 
 ### python-dotenv mancante nei requirements.txt
 - [x] **Bug Requirements - python-dotenv non dichiarato**: [2026-01-09] Il codice Python usa `from dotenv import load_dotenv` ma la dipendenza `python-dotenv` non era presente nel file `requirements.txt`. Questo causava potenziali problemi di installazione quando si installavano le dipendenze da zero.
   - **Come si manifesta**: Se si installa il progetto da zero con `pip install -r requirements.txt`, l'import di `dotenv` fallisce con `ModuleNotFoundError: No module named 'dotenv'`. Il server non può avviarsi.
-  - **Sezione correlata**: `electronics_server_python/requirements.txt`, `electronics_server_python/main.py` (riga 21)
+  - **Sezione correlata**: `gdo_server_python/requirements.txt`, `gdo_server_python/main.py` (riga 21)
   - **Stato**: ✅ Risolto (vedi sezione "Bug risolti")
 
 ### pandas mancante nei requirements.txt
 - [x] **Bug Requirements - pandas non dichiarato**: [2026-01-09] DuckDB richiede `pandas` per il metodo `fetchdf()` che converte i risultati delle query SQL in DataFrame pandas. Tuttavia, `pandas` non era presente nel file `requirements.txt`, causando `Invalid Input Error: 'pandas' is required for this operation but it was not installed` quando il server tentava di recuperare prodotti da MotherDuck.
   - **Come si manifesta**: Errori nei log quando si chiama `con.execute(query).fetchdf()` in `get_products_from_motherduck()`: `Invalid Input Error: 'pandas' is required for this operation but it was not installed`. Il server non può recuperare prodotti da MotherDuck.
-  - **Sezione correlata**: `electronics_server_python/requirements.txt`, `electronics_server_python/main.py` (riga 142)
+  - **Sezione correlata**: `gdo_server_python/requirements.txt`, `gdo_server_python/main.py` (riga 142)
   - **Stato**: ✅ Risolto (vedi sezione "Bug risolti")
 
 ## Bug risolti
@@ -96,7 +96,7 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
   - **Bug trovato**: [2026-01-15] Il prezzo veniva convertito in `$/$$/$$$` in `transform_products_to_places()` invece di mostrare il valore reale dal database (`prices`).
   - **Bug risolto**: [2026-01-15] La conversione è stata aggiornata per formattare il prezzo numerico in euro con due decimali e separatore decimale a virgola (es. `34,59€`).
   - **Soluzione applicata**:
-    1. Aggiornata la conversione prezzo in `electronics_server_python/main.py` per usare `prices` e formattare `€`.
+    1. Aggiornata la conversione prezzo in `gdo_server_python/main.py` per usare `prices` e formattare `€`.
     2. Aggiornata la documentazione in `specifications.md` sulla mappatura del campo `price`.
   - **Verificato**: [2026-01-15] I widget mostrano il prezzo numerico con simbolo `€` al posto di `$/$$/$$$`.
 
@@ -111,7 +111,7 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
 
 ### Errore TypeScript - Modulo JSX senza dichiarazione
 - [x] **TS7016 - `SafeImage` JSX senza declaration**: [2026-01-15]
-  - **Bug trovato**: [2026-01-15] Errore TypeScript `TS7016` in `src/utils/ProductDetails.tsx` per import di `../electronics/SafeImage` (file `.jsx` senza dichiarazione di modulo).
+  - **Bug trovato**: [2026-01-15] Errore TypeScript `TS7016` in `src/utils/ProductDetails.tsx` per import di `../gdo/SafeImage` (file `.jsx` senza dichiarazione di modulo).
   - **Bug risolto**: [2026-01-15] Aggiunta dichiarazione globale per moduli `.jsx` e aggiornato l'import con estensione `.jsx`.
   - **Soluzione applicata**:
     1. Creato `src/jsx.d.ts` con `declare module "*.jsx"`.
@@ -120,8 +120,8 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
 
 ### CORS Error - UI non si carica
 - [x] **Bug CORS - Access-Control-Allow-Origin mancante**: [2026-01-08]
-  - **Bug trovato**: [2026-01-08] Il widget non si caricava quando veniva renderizzato da ChatGPT. Il browser bloccava il caricamento di risorse JavaScript e CSS a causa di una policy CORS. L'errore specifico era: "CORS policy blocking" o "Access-Control-Allow-Origin header was missing" quando si tentava di caricare `https://sdk-electronics.onrender.com/assets/electronics-carousel-2d2b.js` da origine `https://connector...web-sandbox.oaiusercontent.com`.
-  - **Bug risolto**: [2026-01-08] È stato implementato un `CORSMiddleware` in `electronics_server_python/main.py` che aggiunge gli header CORS necessari a tutte le risposte HTTP. Il middleware gestisce anche le richieste OPTIONS (preflight) e aggiunge `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods`, e `Access-Control-Allow-Headers` alle risposte.
+  - **Bug trovato**: [2026-01-08] Il widget non si caricava quando veniva renderizzato da ChatGPT. Il browser bloccava il caricamento di risorse JavaScript e CSS a causa di una policy CORS. L'errore specifico era: "CORS policy blocking" o "Access-Control-Allow-Origin header was missing" quando si tentava di caricare `https://sdk-gdo.onrender.com/assets/gdo-carousel-2d2b.js` da origine `https://connector...web-sandbox.oaiusercontent.com`.
+  - **Bug risolto**: [2026-01-08] È stato implementato un `CORSMiddleware` in `gdo_server_python/main.py` che aggiunge gli header CORS necessari a tutte le risposte HTTP. Il middleware gestisce anche le richieste OPTIONS (preflight) e aggiunge `Access-Control-Allow-Origin`, `Access-Control-Allow-Methods`, e `Access-Control-Allow-Headers` alle risposte.
   - **Soluzione applicata**:
     1. Creato classe `CORSMiddleware` che estende `BaseHTTPMiddleware` (riga 235-294 in `main.py`)
     2. Il middleware gestisce richieste OPTIONS (preflight) restituendo header CORS appropriati
@@ -172,21 +172,21 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
 
 ### Immagine Blob Storage non accessibile
 - [x] **Bug Immagine Blob Storage - Immagine con permessi negati**: [2026-01-08]
-  - **Bug trovato**: [2026-01-08] L'immagine `img-Ywf9b6rLPQ5YM0rZh2NQEkp8.png` da Azure Blob Storage in `src/electronics/markers.json` (riga 11) non è accessibile, causando errori 409 (Conflict) e "access is not permitted on this storage account" nella console del browser. Questo impedisce il caricamento completo del widget.
-  - **Bug risolto**: [2026-01-08] L'URL dell'immagine blob storage è stato sostituito con un'immagine valida da `https://persistent.oaistatic.com/electronics/electronics-1.png` per garantire che l'immagine sia accessibile.
+  - **Bug trovato**: [2026-01-08] L'immagine `img-Ywf9b6rLPQ5YM0rZh2NQEkp8.png` da Azure Blob Storage in `src/gdo/markers.json` (riga 11) non è accessibile, causando errori 409 (Conflict) e "access is not permitted on this storage account" nella console del browser. Questo impedisce il caricamento completo del widget.
+  - **Bug risolto**: [2026-01-08] L'URL dell'immagine blob storage è stato sostituito con un'immagine valida da `https://persistent.oaistatic.com/gdo/gdo-1.png` per garantire che l'immagine sia accessibile.
   - **Soluzione applicata**:
-    1. Sostituito l'URL blob storage non accessibile con `https://persistent.oaistatic.com/electronics/electronics-1.png` in `src/electronics/markers.json` (riga 11)
+    1. Sostituito l'URL blob storage non accessibile con `https://persistent.oaistatic.com/gdo/gdo-1.png` in `src/gdo/markers.json` (riga 11)
   - **Verificato**: [2026-01-08] L'immagine ora punta a una risorsa accessibile. L'errore 409 e di permessi non dovrebbe più verificarsi per questo elemento.
 
 ### Immagini bloccate da ORB (Opaque Response Blocking)
-- [x] **Bug ORB - Immagini electronics-*.png bloccate**: [2026-01-08]
-  - **Bug trovato**: [2026-01-08] Le immagini `electronics-*.png` da `https://persistent.oaistatic.com/electronics/` vengono bloccate dal browser con errore `ERR_BLOCKED_BY_ORB` (Opaque Response Blocking). Questo è un meccanismo di sicurezza del browser che blocca risposte opache cross-origin, causando il mancato caricamento delle immagini nel widget. Il problema persiste anche quando i dati verranno caricati dal database, poiché le immagini saranno ancora URL esterni.
+- [x] **Bug ORB - Immagini gdo-*.png bloccate**: [2026-01-08]
+  - **Bug trovato**: [2026-01-08] Le immagini `gdo-*.png` da `https://persistent.oaistatic.com/gdo/` vengono bloccate dal browser con errore `ERR_BLOCKED_BY_ORB` (Opaque Response Blocking). Questo è un meccanismo di sicurezza del browser che blocca risposte opache cross-origin, causando il mancato caricamento delle immagini nel widget. Il problema persiste anche quando i dati verranno caricati dal database, poiché le immagini saranno ancora URL esterni.
   - **Bug risolto**: [2026-01-08] È stata implementata una soluzione completa con:
     1. **Endpoint proxy sul server Python** (`/proxy-image`) che scarica immagini esterne e le serve con header CORS corretti
     2. **Componente `SafeImage` migliorato** che usa automaticamente il proxy quando un'immagine esterna fallisce
     3. **Gestione fallback** con placeholder quando anche il proxy fallisce
   - **Soluzione applicata**:
-    1. **Server Python - Endpoint Proxy** (`electronics_server_python/main.py`):
+    1. **Server Python - Endpoint Proxy** (`gdo_server_python/main.py`):
        - Creato endpoint `GET /proxy-image?url=...` che accetta un parametro `url` (URL-encoded)
        - L'endpoint scarica l'immagine dal server esterno usando `httpx`
        - Serve l'immagine con header CORS corretti (`Access-Control-Allow-Origin`, ecc.)
@@ -194,7 +194,7 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
        - Supporta whitelist di domini tramite variabile d'ambiente `PROXY_ALLOWED_DOMAINS` (opzionale)
        - Aggiunto handler per richieste OPTIONS (preflight)
        - Aggiunta dipendenza `httpx>=0.27.0` in `requirements.txt`
-    2. **Componente SafeImage** (`src/electronics/SafeImage.jsx`):
+    2. **Componente SafeImage** (`src/gdo/SafeImage.jsx`):
        - Rileva automaticamente quando un'immagine esterna fallisce
        - Costruisce automaticamente l'URL del proxy deducendo l'URL base del server
        - Prova a caricare l'immagine tramite proxy quando il caricamento diretto fallisce
@@ -202,12 +202,12 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
        - Supporta prop opzionale `proxyBaseUrl` per specificare esplicitamente l'URL base
        - Gestisce correttamente URL relativi, data URI, e blob URL (non usa proxy per questi)
     3. **Sostituzione componenti**: Tutti i componenti che usano immagini sono stati aggiornati per usare `SafeImage`:
-       - `src/electronics-carousel/PlaceCard.jsx`
-       - `src/electronics/Inspector.jsx` (2 occorrenze)
-       - `src/electronics/Sidebar.jsx`
-       - `src/electronics-albums/AlbumCard.jsx`
-       - `src/electronics-albums/FullscreenViewer.jsx`
-       - `src/electronics-albums/FilmStrip.jsx`
+       - `src/gdo-carousel/PlaceCard.jsx`
+       - `src/gdo/Inspector.jsx` (2 occorrenze)
+       - `src/gdo/Sidebar.jsx`
+       - `src/gdo-albums/AlbumCard.jsx`
+       - `src/gdo-albums/FullscreenViewer.jsx`
+       - `src/gdo-albums/FilmStrip.jsx`
   - **Vantaggi della soluzione**:
     - ✅ Risolve il problema ORB/CORS per tutte le immagini esterne
     - ✅ Funziona sia con dati da JSON che da database (le immagini sono sempre URL esterni)
@@ -222,14 +222,14 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
 
 ### File .env non trovato dal server Python
 - [x] **Bug .env - File .env non caricato correttamente**: [2026-01-09]
-  - **Bug trovato**: [2026-01-09] Il server Python non riusciva a trovare il file `.env` nella root del progetto quando veniva eseguito. Il problema era che `load_dotenv()` cercava il file nella directory corrente di lavoro invece che nella root del progetto. Quando il server veniva eseguito da `electronics_server_python/` invece che dalla root, il file `.env` non veniva trovato.
+  - **Bug trovato**: [2026-01-09] Il server Python non riusciva a trovare il file `.env` nella root del progetto quando veniva eseguito. Il problema era che `load_dotenv()` cercava il file nella directory corrente di lavoro invece che nella root del progetto. Quando il server veniva eseguito da `gdo_server_python/` invece che dalla root, il file `.env` non veniva trovato.
   - **Bug risolto**: [2026-01-09] Modificato il codice per specificare esplicitamente il percorso del file `.env` nella root del progetto usando `Path(__file__).resolve().parent.parent / ".env"`. Questo garantisce che il file `.env` venga sempre trovato indipendentemente dalla directory di lavoro corrente.
   - **Soluzione applicata**:
-    1. Modificato `electronics_server_python/main.py` (righe 21-26):
+    1. Modificato `gdo_server_python/main.py` (righe 21-26):
        - Aggiunto `from pathlib import Path` per gestire percorsi
        - Calcolato il percorso esplicito del file `.env`: `env_path = Path(__file__).resolve().parent.parent / ".env"`
        - Modificato `load_dotenv()` per usare il percorso esplicito: `load_dotenv(dotenv_path=env_path)`
-    2. Il file `.env` deve essere posizionato nella root del progetto (`c:\Projects\sdk-electronics\.env`), non in `electronics_server_python/`
+    2. Il file `.env` deve essere posizionato nella root del progetto (`c:\Projects\sdk-gdo\.env`), non in `gdo_server_python/`
   - **Verificato**: [2026-01-09] Il server Python ora trova correttamente il file `.env` nella root del progetto. Le variabili d'ambiente vengono caricate correttamente indipendentemente dalla directory di lavoro corrente.
 
 ### MOTHERDUCK_TOKEN non configurato nel file .env
@@ -250,7 +250,7 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
   - **Bug trovato**: [2026-01-09] Il codice Python usa `from dotenv import load_dotenv` (riga 21 in `main.py`) ma la dipendenza `python-dotenv` non era presente nel file `requirements.txt`. Questo causava potenziali problemi quando si installavano le dipendenze da zero: l'import falliva con `ModuleNotFoundError: No module named 'dotenv'`.
   - **Bug risolto**: [2026-01-09] Aggiunto `python-dotenv>=1.0.0` al file `requirements.txt`. La dipendenza è necessaria per caricare le variabili d'ambiente dal file `.env`.
   - **Soluzione applicata**:
-    1. Aggiunta riga `python-dotenv>=1.0.0  # Per caricare variabili d'ambiente da .env` a `electronics_server_python/requirements.txt`
+    1. Aggiunta riga `python-dotenv>=1.0.0  # Per caricare variabili d'ambiente da .env` a `gdo_server_python/requirements.txt`
     2. Verificato che `python-dotenv` sia installato nel sistema (era già installato globalmente, ma ora è dichiarato nelle dipendenze del progetto)
   - **Nota**: Anche se `python-dotenv` era già installato nel sistema, è importante dichiararlo in `requirements.txt` per garantire che venga installato quando si clona il progetto o si crea un nuovo ambiente virtuale.
   - **Verificato**: [2026-01-09] La dipendenza `python-dotenv>=1.0.0` è ora presente in `requirements.txt`. Il progetto può essere installato da zero senza errori di import.
@@ -260,7 +260,7 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
   - **Bug trovato**: [2026-01-09] DuckDB richiede `numpy` per funzionare correttamente, in particolare per il metodo `fetchdf()` che converte i risultati delle query in DataFrame pandas. Tuttavia, `numpy` non era presente nel file `requirements.txt`, causando `ModuleNotFoundError: No module named 'numpy'` quando il server tentava di recuperare prodotti da MotherDuck.
   - **Bug risolto**: [2026-01-09] Aggiunto `numpy>=1.24.0` al file `requirements.txt`. DuckDB usa numpy internamente per operazioni DataFrame e per convertire risultati in formato pandas.
   - **Soluzione applicata**:
-    1. Aggiunta riga `numpy>=1.24.0  # Richiesto da DuckDB per fetchdf() e operazioni DataFrame` a `electronics_server_python/requirements.txt`
+    1. Aggiunta riga `numpy>=1.24.0  # Richiesto da DuckDB per fetchdf() e operazioni DataFrame` a `gdo_server_python/requirements.txt`
   - **Errore nei log**: `ModuleNotFoundError: No module named 'numpy'` quando si chiama `con.execute(query).fetchdf()` in `get_products_from_motherduck()`
   - **Verificato**: [2026-01-09] La dipendenza `numpy>=1.24.0` è ora presente in `requirements.txt`. Il server dovrebbe ora essere in grado di recuperare prodotti da MotherDuck senza errori di import.
 
@@ -269,22 +269,22 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
   - **Bug trovato**: [2026-01-09] DuckDB richiede `pandas` per il metodo `fetchdf()` che converte i risultati delle query SQL in DataFrame pandas. Tuttavia, `pandas` non era presente nel file `requirements.txt`, causando `Invalid Input Error: 'pandas' is required for this operation but it was not installed` quando il server tentava di recuperare prodotti da MotherDuck.
   - **Come si manifesta**: 
     - **Errore nei log del server**: `Invalid Input Error: 'pandas' is required for this operation but it was not installed`
-    - **Location**: `electronics_server_python/main.py` riga 142: `products_df = con.execute(query).fetchdf()`
+    - **Location**: `gdo_server_python/main.py` riga 142: `products_df = con.execute(query).fetchdf()`
     - **Funzione**: `get_products_from_motherduck()` nella funzione `get_products_from_motherduck()`
-    - **Impatto**: Il server non può recuperare prodotti da MotherDuck, causando liste vuote nei widget quando vengono chiamati i tool (electronics-carousel, electronics-map, electronics-list, electronics-albums, mixed-auth-search)
+    - **Impatto**: Il server non può recuperare prodotti da MotherDuck, causando liste vuote nei widget quando vengono chiamati i tool (gdo-carousel, gdo-map, gdo-list, gdo-albums, mixed-auth-search)
     - **Stack trace completo**: 
       ```
-      2026-01-09 15:45:41 - electronics_server_python.main - ERROR - Error retrieving products from MotherDuck: Invalid Input Error: 'pandas' is required for this operation but it was not installed
+      2026-01-09 15:45:41 - gdo_server_python.main - ERROR - Error retrieving products from MotherDuck: Invalid Input Error: 'pandas' is required for this operation but it was not installed
       Traceback (most recent call last):
-        File "/opt/render/project/src/electronics_server_python/main.py", line 137, in get_products_from_motherduck
+        File "/opt/render/project/src/gdo_server_python/main.py", line 137, in get_products_from_motherduck
           with get_motherduck_connection() as con:
-        File "/opt/render/project/src/electronics_server_python/main.py", line 142, in get_products_from_motherduck
+        File "/opt/render/project/src/gdo_server_python/main.py", line 142, in get_products_from_motherduck
           products_df = con.execute(query).fetchdf()
       _duckdb.InvalidInputException: Invalid Input Error: 'pandas' is required for this operation but it was not installed
       ```
   - **Bug risolto**: [2026-01-09] Aggiunto `pandas>=2.0.0` al file `requirements.txt`. DuckDB usa pandas per convertire risultati query in DataFrame, che vengono poi trasformati in dizionari Python per compatibilità JSON.
   - **Soluzione applicata**:
-    1. Aggiunta riga `pandas>=2.0.0  # Richiesto da DuckDB per fetchdf() (conversione risultati in DataFrame)` a `electronics_server_python/requirements.txt`
+    1. Aggiunta riga `pandas>=2.0.0  # Richiesto da DuckDB per fetchdf() (conversione risultati in DataFrame)` a `gdo_server_python/requirements.txt`
     2. La dipendenza viene installata automaticamente durante `pip install -r requirements.txt` o durante il deploy su Render
   - **Nota tecnica**: 
     - Sia `numpy` che `pandas` sono richiesti da DuckDB per `fetchdf()`. 
@@ -301,19 +301,19 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
     - Lista vuota dovuta a un errore (pandas, token, connessione) → controllare ERROR precedenti
     - Lista vuota perché il database è effettivamente vuoto → comportamento normale
   - **Soluzione applicata**:
-    1. Modificati i warning in `_call_tool_request` per tool `product-list`, `electronics-albums`, e widget `places` (electronics-carousel, electronics-map, electronics-list, mixed-auth-search)
+    1. Modificati i warning in `_call_tool_request` per tool `product-list`, `gdo-albums`, e widget `places` (gdo-carousel, gdo-map, gdo-list, mixed-auth-search)
     2. Aggiunto messaggio esplicativo: "Check previous logs for errors (e.g., pandas missing, MOTHERDUCK_TOKEN not configured, or database connection issues)."
-  - **File modificati**: `electronics_server_python/main.py` (righe ~987, ~1015, ~1047)
+  - **File modificati**: `gdo_server_python/main.py` (righe ~987, ~1015, ~1047)
   - **Errore nei log**: Quando c'è un errore (es. pandas mancante), si vede:
     ```
     ERROR - Error retrieving products from MotherDuck: Invalid Input Error: 'pandas' is required...
-    WARNING - Tool electronics-carousel: No products retrieved from MotherDuck. Widget will display empty places list.
+    WARNING - Tool gdo-carousel: No products retrieved from MotherDuck. Widget will display empty places list.
     ```
   - **Verificato**: [2026-01-09] I warning ora sono più informativi e aiutano a identificare quando una lista vuota è causata da un errore di configurazione piuttosto che da un database vuoto. Il messaggio ora include un suggerimento a controllare i log precedenti per errori specifici.
   - **Errore nei log**: Quando c'è un errore (es. pandas mancante), si vede:
     ```
     ERROR - Error retrieving products from MotherDuck: Invalid Input Error: 'pandas' is required...
-    WARNING - Tool electronics-carousel: No products retrieved from MotherDuck. Widget will display empty places list.
+    WARNING - Tool gdo-carousel: No products retrieved from MotherDuck. Widget will display empty places list.
     ```
   - **Verificato**: [2026-01-09] I warning ora sono più informativi e aiutano a identificare quando una lista vuota è causata da un errore di configurazione piuttosto che da un database vuoto.
 
@@ -346,14 +346,14 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
 ### POST /sse restituisce 405 Method Not Allowed
 - [ ] **Bug SSE - POST non supportato su /sse**: [2026-01-09] Nei log di produzione si vede `POST /sse HTTP/1.1" 405 Method Not Allowed`. L'endpoint `/sse` accetta solo GET per le richieste SSE, ma qualcuno sta tentando di fare POST. Questo non è critico (il GET funziona correttamente), ma indica che potrebbe esserci confusione su quale endpoint usare.
   - **Come si manifesta**: Errori 405 nei log quando viene tentato POST su `/sse`. L'endpoint `/sse` accetta solo GET per Server-Sent Events.
-  - **Sezione correlata**: FastMCP SSE endpoint configuration in `electronics_server_python/main.py`
+  - **Sezione correlata**: FastMCP SSE endpoint configuration in `gdo_server_python/main.py`
   - **Nota**: FastMCP espone `/mcp` come endpoint principale per SSE. L'endpoint `/sse` potrebbe essere un alias o potrebbe non essere esposto direttamente. Il 405 è normale se qualcuno tenta POST invece di GET.
   - **Stato**: ⚠️ **Non critico** - Il GET funziona correttamente, il POST viene rifiutato come previsto. Potrebbe essere necessario verificare la configurazione del client o documentare correttamente quale endpoint usare.
 
 ### 404 Not Found per favicon
 - [ ] **Bug Favicon - Richieste favicon restituiscono 404**: [2026-01-09] Nei log di produzione si vedono richieste `GET /favicon.svg`, `/favicon.png`, `/favicon.ico` che restituiscono 404 Not Found. Questo è normale e non critico, ma può essere risolto aggiungendo un endpoint per servire un favicon o ignorando queste richieste.
   - **Come si manifesta**: Errori 404 nei log per richieste favicon dal browser. Questo è normale comportamento del browser che cerca automaticamente un favicon.
-  - **Sezione correlata**: Server Python - gestione richieste statiche in `electronics_server_python/main.py`
+  - **Sezione correlata**: Server Python - gestione richieste statiche in `gdo_server_python/main.py`
   - **Stato**: ⚠️ **Non critico** - Le richieste favicon sono normali e non bloccano il funzionamento del server. Opzionalmente si può aggiungere un endpoint per servire un favicon o ignorare queste richieste nel logging.
 
 ### Errore Client - Cannot moveNode (ChatGPT DOM manipulation)
@@ -408,12 +408,12 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
        - Questo riduce la probabilità di conflitti DOM durante re-render
     2. **Aggiunto React.memo per ottimizzare re-render**:
        - `src/mixed-auth-search/SliceCard.jsx`: Memoizzato per evitare re-render quando le props non cambiano
-       - `src/electronics-carousel/PlaceCard.jsx`: Memoizzato con comparazione personalizzata basata su `place.id`
-       - `src/electronics-albums/AlbumCard.jsx`: Memoizzato con comparazione personalizzata basata su `album.id` e callback `onSelect`
+       - `src/gdo-carousel/PlaceCard.jsx`: Memoizzato con comparazione personalizzata basata su `place.id`
+       - `src/gdo-albums/AlbumCard.jsx`: Memoizzato con comparazione personalizzata basata su `album.id` e callback `onSelect`
        - Questi componenti vengono renderizzati in liste e beneficiano di memoization per ridurre re-render non necessari
     3. **Verifiche manipolazioni DOM**:
        - Verificato che non ci siano manipolazioni DOM dirette problematiche
-       - `document.querySelector` in `electronics/index.jsx` è usato solo per leggere dimensioni (non per modificare DOM)
+       - `document.querySelector` in `src/gdo/index.jsx` è usato solo per leggere dimensioni (non per modificare DOM)
        - `document.head.appendChild(style)` in `todo.jsx` è usato per iniettare stili CSS una volta (pratica comune e sicura)
        - Aggiunto controllo aggiuntivo in `injectDatepickerStylesOnce()` per verificare se lo stile è già presente nel DOM prima di aggiungerlo (backup al controllo esistente con variabile globale)
        - Tutti gli altri usi di `document.getElementById` sono per il mounting iniziale di React (normale e corretto)

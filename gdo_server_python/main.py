@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-"""Electronics demo MCP server implemented with the Python FastMCP helper.
+"""GDO demo MCP server implemented with the Python FastMCP helper.
 
-The server exposes widget-backed tools that render the Electronics UI bundle.
+The server exposes widget-backed tools that render the GDO UI bundle.
 Each handler returns the HTML shell via an MCP resource and echoes structured
 content so the ChatGPT client can hydrate the widget. The module also wires the
 handlers into an HTTP/SSE stack so you can run the server with uvicorn on port
@@ -25,13 +25,13 @@ from dotenv import load_dotenv
 from pathlib import Path
 from decimal import Decimal, ROUND_HALF_UP
 
-# Carica il file .env dalla root del progetto (non dalla directory electronics_server_python)
-# __file__ è main.py in electronics_server_python/, quindi parent.parent è la root
+# Carica il file .env dalla root del progetto (non dalla directory gdo_server_python)
+# __file__ è main.py in gdo_server_python/, quindi parent.parent è la root
 # Prova anche nella directory corrente come fallback
 env_paths = [
     Path(__file__).resolve().parent.parent / ".env",  # Root del progetto
     Path.cwd() / ".env",  # Directory corrente
-    Path(__file__).resolve().parent / ".env",  # Directory electronics_server_python (fallback)
+    Path(__file__).resolve().parent / ".env",  # Directory gdo_server_python (fallback)
 ]
 
 env_path = None
@@ -148,7 +148,7 @@ def confirm_payment_intent(payment_intent_id: str):
 
 
 @dataclass(frozen=True)
-class ElectronicsWidget:
+class GdoWidget:
     identifier: str
     title: str
     template_uri: str
@@ -861,7 +861,7 @@ def transform_products_to_albums(
                 categories = [cat.strip() for cat in product["categories"].split(",")]
         
         # Usa la prima categoria come categoria principale, o "General" se non ci sono
-        category = categories[0] if categories else "General Electronics"
+        category = categories[0] if categories else "General GDO"
         
         # Normalizza il nome della categoria per l'id dell'album
         album_id = category.lower().replace(" ", "-").replace("&", "and")[:30]
@@ -935,53 +935,53 @@ def _load_widget_html(component_name: str) -> str:
     )
 
 
-widgets: List[ElectronicsWidget] = [
-    ElectronicsWidget(
-        identifier="electronics-map",
-        title="Show Electronics Map",
-        template_uri="ui://widget/electronics-map.html",
-        invoking="Loading electronics map",
-        invoked="Electronics map loaded",
-        html=_load_widget_html("electronics"),
-        response_text="Rendered an electronics map!",
+widgets: List[GdoWidget] = [
+    GdoWidget(
+        identifier="gdo-map",
+        title="Show GDO Map",
+        template_uri="ui://widget/gdo-map.html",
+        invoking="Loading GDO map",
+        invoked="GDO map loaded",
+        html=_load_widget_html("gdo"),
+        response_text="Rendered a GDO map!",
     ),
-    ElectronicsWidget(
-        identifier="electronics-carousel",
-        title="Show Electronics Carousel",
-        template_uri="ui://widget/electronics-carousel.html",
-        invoking="Loading electronics carousel",
-        invoked="Electronics carousel loaded",
-        html=_load_widget_html("electronics-carousel"),
-        response_text="Rendered an electronics carousel!",
+    GdoWidget(
+        identifier="gdo-carousel",
+        title="Show GDO Carousel",
+        template_uri="ui://widget/gdo-carousel.html",
+        invoking="Loading GDO carousel",
+        invoked="GDO carousel loaded",
+        html=_load_widget_html("gdo-carousel"),
+        response_text="Rendered a GDO carousel!",
     ),
-    ElectronicsWidget(
-        identifier="electronics-albums",
-        title="Show Electronics Album",
-        template_uri="ui://widget/electronics-albums.html",
-        invoking="Loading electronics album",
-        invoked="Electronics album loaded",
-        html=_load_widget_html("electronics-albums"),
-        response_text="Rendered an electronics album!",
+    GdoWidget(
+        identifier="gdo-albums",
+        title="Show GDO Album",
+        template_uri="ui://widget/gdo-albums.html",
+        invoking="Loading GDO album",
+        invoked="GDO album loaded",
+        html=_load_widget_html("gdo-albums"),
+        response_text="Rendered a GDO album!",
     ),
-    ElectronicsWidget(
-        identifier="electronics-list",
-        title="Show Electronics List",
-        template_uri="ui://widget/electronics-list.html",
-        invoking="Loading electronics list",
-        invoked="Electronics list loaded",
-        html=_load_widget_html("electronics-list"),
-        response_text="Rendered an electronics list!",
+    GdoWidget(
+        identifier="gdo-list",
+        title="Show GDO List",
+        template_uri="ui://widget/gdo-list.html",
+        invoking="Loading GDO list",
+        invoked="GDO list loaded",
+        html=_load_widget_html("gdo-list"),
+        response_text="Rendered a GDO list!",
     ),
-    ElectronicsWidget(
-        identifier="electronics-shop",
-        title="Open Electronics Shop",
-        template_uri="ui://widget/electronics-shop.html",
-        invoking="Opening the electronics shop",
-        invoked="Electronics shop opened",
-        html=_load_widget_html("electronics-shop"),
-        response_text="Rendered the Electronics shop!",
+    GdoWidget(
+        identifier="gdo-shop",
+        title="Open GDO Shop",
+        template_uri="ui://widget/gdo-shop.html",
+        invoking="Opening the GDO shop",
+        invoked="GDO shop opened",
+        html=_load_widget_html("gdo-shop"),
+        response_text="Rendered the GDO shop!",
     ),
-    ElectronicsWidget(
+    GdoWidget(
         identifier="product-list",
         title="List Products from MotherDuck",
         template_uri="ui://widget/product-list.html",
@@ -990,7 +990,7 @@ widgets: List[ElectronicsWidget] = [
         html="<p>Product list is being rendered...</p>",
         response_text="Here are the products from MotherDuck!",
     ),
-    ElectronicsWidget(
+    GdoWidget(
         identifier="shopping-cart",
         title="Show Shopping Cart",
         template_uri="ui://widget/shopping-cart.html",
@@ -1004,16 +1004,16 @@ widgets: List[ElectronicsWidget] = [
 MIME_TYPE = "text/html+skybridge"
 
 
-WIDGETS_BY_ID: Dict[str, ElectronicsWidget] = {
+WIDGETS_BY_ID: Dict[str, GdoWidget] = {
     widget.identifier: widget for widget in widgets
 }
-WIDGETS_BY_URI: Dict[str, ElectronicsWidget] = {
+WIDGETS_BY_URI: Dict[str, GdoWidget] = {
     widget.template_uri: widget for widget in widgets
 }
 
 
-# Note: ElectronicsInput removed - most widgets don't require input parameters
-# If needed in the future, create ElectronicsInput with appropriate fields
+# Note: GdoInput removed - most widgets don't require input parameters
+# If needed in the future, create GdoInput with appropriate fields
 
 
 def _split_env_list(value: str | None) -> List[str]:
@@ -1290,7 +1290,7 @@ async def proxy_image_options_handler(request: Request):
 
 
 mcp = FastMCP(
-    name="electronics-python",
+    name="gdo-python",
     stateless_http=True,
     transport_security=_transport_security_settings(),
 )
@@ -2232,11 +2232,11 @@ def _serialize_checkout_session(
 
 
 
-def _resource_description(widget: ElectronicsWidget) -> str:
+def _resource_description(widget: GdoWidget) -> str:
     return f"{widget.title} widget markup"
 
 
-def _tool_description(widget: ElectronicsWidget) -> str:
+def _tool_description(widget: GdoWidget) -> str:
     """
     Genera una descrizione dettagliata per ogni tool basata sul suo identificatore.
     
@@ -2244,31 +2244,31 @@ def _tool_description(widget: ElectronicsWidget) -> str:
         str: Descrizione dettagliata del tool che spiega cosa fa, quando usarlo e cosa restituisce.
     """
     descriptions = {
-        "electronics-map": (
-            "Mostra una mappa interattiva dei negozi di elettronica. "
+        "gdo-map": (
+            "Mostra una mappa interattiva dei negozi GDO. "
             "Usa questo tool quando l'utente chiede di vedere la posizione dei negozi o di visualizzare "
             "una mappa interattiva. Restituisce un widget HTML con una mappa cliccabile."
         ),
-        "electronics-carousel": (
-            "Mostra un carosello interattivo di prodotti elettronici (massimo 6 prodotti). "
+        "gdo-carousel": (
+            "Mostra un carosello interattivo di prodotti GDO (massimo 6 prodotti). "
             "Usa questo tool quando l'utente vuole sfogliare prodotti in formato carosello o visualizzare "
             "una selezione di prodotti in modo interattivo. Puoi filtrare per categoria usando il parametro 'category' "
             "(es. 'Video & TV', 'tv', 'Informatica', 'Audio'). Restituisce un widget HTML con un carosello navigabile."
         ),
-        "electronics-albums": (
-            "Mostra una galleria di prodotti elettronici con visualizzazione a album. "
+        "gdo-albums": (
+            "Mostra una galleria di prodotti GDO con visualizzazione a album. "
             "Usa questo tool quando l'utente chiede di vedere una galleria di prodotti, foto o immagini "
             "in formato album. Puoi filtrare per categoria usando il parametro 'category' "
             "(es. 'Video & TV', 'tv', 'Informatica', 'Audio'). Restituisce un widget HTML con una galleria interattiva."
         ),
-        "electronics-list": (
-            "Mostra una lista di prodotti elettronici. "
+        "gdo-list": (
+            "Mostra una lista di prodotti GDO. "
             "Usa questo tool quando l'utente chiede di vedere un elenco di prodotti o una lista semplice. "
             "Puoi filtrare per categoria usando il parametro 'category' "
             "(es. 'Video & TV', 'tv', 'Informatica', 'Audio'). Restituisce un widget HTML con una lista formattata di prodotti."
         ),
-        "electronics-shop": (
-            "Apre il negozio elettronico completo con funzionalità di shopping (massimo 24 prodotti). "
+        "gdo-shop": (
+            "Apre il negozio GDO completo con funzionalità di shopping (massimo 24 prodotti). "
             "Usa questo tool quando l'utente vuole accedere al negozio completo, vedere prodotti con dettagli, "
             "o iniziare lo shopping. Puoi filtrare per categoria usando il parametro 'category' "
             "(es. 'Video & TV', 'tv', 'Informatica', 'Audio'). Restituisce un widget HTML con l'interfaccia completa del negozio."
@@ -2291,7 +2291,7 @@ def _tool_description(widget: ElectronicsWidget) -> str:
     return descriptions.get(widget.identifier, widget.title)
 
 
-def _tool_meta(widget: ElectronicsWidget) -> Dict[str, Any]:
+def _tool_meta(widget: GdoWidget) -> Dict[str, Any]:
     return {
         "openai/outputTemplate": widget.template_uri,
         "openai/toolInvocation/invoking": widget.invoking,
@@ -2300,7 +2300,7 @@ def _tool_meta(widget: ElectronicsWidget) -> Dict[str, Any]:
     }
 
 
-def _tool_invocation_meta(widget: ElectronicsWidget) -> Dict[str, Any]:
+def _tool_invocation_meta(widget: GdoWidget) -> Dict[str, Any]:
     return {
         "openai/toolInvocation/invoking": widget.invoking,
         "openai/toolInvocation/invoked": widget.invoked,
@@ -2319,10 +2319,10 @@ async def _list_tools() -> List[types.Tool]:
     # Tool che possono filtrare per categoria (recuperano prodotti da MotherDuck)
     tools_with_category_filter = {
         "product-list",
-        "electronics-carousel",
-        "electronics-albums",
-        "electronics-list",
-        "electronics-shop",
+        "gdo-carousel",
+        "gdo-albums",
+        "gdo-list",
+        "gdo-shop",
     }
     
     tools = [
@@ -2580,8 +2580,8 @@ async def _handle_read_resource(req: types.ReadResourceRequest) -> types.ServerR
     injection_script = f"""<script>
     // Inject server base URL for image proxy configuration
     if (typeof window !== 'undefined') {{
-      window.__ELECTRONICS_SERVER_URL__ = {repr(server_url)};
-      console.log('[Server] Injected server base URL:', window.__ELECTRONICS_SERVER_URL__);
+      window.__GDO_SERVER_URL__ = {repr(server_url)};
+      console.log('[Server] Injected server base URL:', window.__GDO_SERVER_URL__);
     }}
     </script>"""
     
@@ -2637,7 +2637,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                 )
             
             # Leggi il file prompts/instructions.md
-            # Il file è nella root del progetto, non nella directory electronics_server_python
+            # Il file è nella root del progetto, non nella directory gdo_server_python
             instructions_path = Path(__file__).resolve().parent.parent / "prompts" / "instructions.md"
             
             if not instructions_path.exists():
@@ -3472,7 +3472,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                     _meta=_tool_invocation_meta(widget),
                 )
             )
-        elif tool_name == "electronics-albums":
+        elif tool_name == "gdo-albums":
             # Widget che usa formato 'albums' - recupera prodotti e trasforma in albums
             # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
             # Non aggiungere mai prodotti di altre categorie per "riempire" la galleria
@@ -3512,22 +3512,22 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                     _meta=_tool_invocation_meta(widget),
                 )
             )
-        elif tool_name in ["electronics-carousel", "electronics-map", "electronics-list", "mixed-auth-search"]:
+        elif tool_name in ["gdo-carousel", "gdo-map", "gdo-list", "mixed-auth-search"]:
             # Widget che usano formato 'places' - recupera prodotti e trasforma in places
             # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
             # Non aggiungere mai prodotti di altre categorie per "riempire" la lista/carosello
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
             products = await get_products_from_motherduck(category=category)
             
-            # Per electronics-carousel, limita a 6 prodotti se viene passata una categoria
+            # Per gdo-carousel, limita a 6 prodotti se viene passata una categoria
             # IMPORTANTE: Non aggiungere prodotti di altre categorie se il filtro ne trova meno di 6
             # Il limite è un MASSIMO, non un obbligo - se ci sono solo 3 prodotti filtrati, mostra solo quelli
-            if category and tool_name != "electronics-carousel":
+            if category and tool_name != "gdo-carousel":
                 logger.info(
                     f"Tool {tool_name}: Filtered {len(products)} products for category '{category}'. "
                     "Showing only filtered products (no unrelated products will be added)."
                 )
-            if tool_name == "electronics-carousel" and category:
+            if tool_name == "gdo-carousel" and category:
                 MAX_CAROUSEL_PRODUCTS = 6
                 original_count = len(products)
                 if original_count > MAX_CAROUSEL_PRODUCTS:
@@ -3573,14 +3573,14 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                     _meta=_tool_invocation_meta(widget),
                 )
             )
-        elif tool_name == "electronics-shop":
-            # electronics-shop potrebbe recuperare prodotti se necessario
+        elif tool_name == "gdo-shop":
+            # gdo-shop potrebbe recuperare prodotti se necessario
             # Per ora non recupera prodotti direttamente, ma potrebbe in futuro
             # Se ha category parameter, potrebbe essere necessario recuperare prodotti
             if category:
-                logger.info(f"Tool {tool_name}: Category filter requested but electronics-shop doesn't fetch products directly")
-                # Potremmo voler recuperare prodotti in futuro per electronics-shop
-                # Per ora, ignora il filtro categoria per electronics-shop
+                logger.info(f"Tool {tool_name}: Category filter requested but gdo-shop doesn't fetch products directly")
+                # Potremmo voler recuperare prodotti in futuro per gdo-shop
+                # Per ora, ignora il filtro categoria per gdo-shop
             
             # Valida che non ci siano altri argomenti inattesi (category è accettato ma ignorato per ora)
             unexpected_args = [k for k in (arguments.keys() if arguments else []) if k != "category"]
@@ -3684,7 +3684,7 @@ async def root_handler(request):
 <html>
 <head>
     <meta charset="utf-8">
-    <title>Electronics MCP Server</title>
+    <title>GDO MCP Server</title>
     <style>
         body {{
             font-family: system-ui, -apple-system, sans-serif;
@@ -3712,7 +3712,7 @@ async def root_handler(request):
     </style>
 </head>
 <body>
-    <h1>Electronics MCP Server</h1>
+    <h1>GDO MCP Server</h1>
     <p>Version: <code>{__version__}</code></p>
     <p>MCP Protocol Version: 2024-11-05</p>
     
@@ -3740,7 +3740,7 @@ async def root_handler(request):
     </ul>
     
     <h2>Documentation</h2>
-    <p>See <code>electronics_server_python/README.md</code> for more information.</p>
+    <p>See <code>gdo_server_python/README.md</code> for more information.</p>
 </body>
 </html>"""
     return StarletteHTMLResponse(content=html_content)
@@ -3768,7 +3768,7 @@ app.add_route("/proxy-image", proxy_image_options_handler, methods=["OPTIONS"])
 if __name__ == "__main__":
     """
     Permette di eseguire il server direttamente con: python main.py
-    Per produzione, usa invece: uvicorn electronics_server_python.main:app --host 0.0.0.0 --port $PORT
+    Per produzione, usa invece: uvicorn gdo_server_python.main:app --host 0.0.0.0 --port $PORT
     """
     port = int(os.getenv("PORT", "8000"))
     host = os.getenv("HOST", "127.0.0.1")

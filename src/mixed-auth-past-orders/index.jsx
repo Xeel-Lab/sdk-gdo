@@ -22,7 +22,7 @@ function App() {
         <div className="min-w-0">
           <div className="text-base font-semibold">Past orders</div>
           <div className="text-sm text-black/60">
-            Synced from your Electronics account
+            Synced from your GDO account
           </div>
         </div>
         <div className="ml-auto text-xs uppercase tracking-wide text-black/40">
@@ -37,15 +37,14 @@ function App() {
                 <div className="flex flex-wrap items-center gap-2">
                   <div className="text-sm font-semibold">{order.orderId}</div>
                   <div
-                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${
-                      statusStyles[order.status] ?? "bg-black/5 text-black/70"
-                    }`}
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ring-1 ring-inset ${statusStyles[order.status] ?? "bg-black/5 text-black/70"
+                      }`}
                   >
                     {order.status}
                   </div>
                 </div>
                 <div className="mt-1 text-sm text-black/70">
-                  {order.restaurantName || "Electronics shop"} · {order.location}
+                  {order.restaurantName || "GDO shop"} · {order.location}
                 </div>
                 <div className="mt-1 text-sm text-black/60">{order.placedAt}</div>
                 <div className="mt-2 text-sm text-black/80">

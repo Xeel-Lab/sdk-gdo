@@ -123,7 +123,7 @@ function App() {
     if (typeof window === "undefined") return 0;
     const isXlUp =
       window.matchMedia && window.matchMedia("(min-width: 1280px)").matches;
-    const el = document.querySelector(".electronics-inspector");
+    const el = document.querySelector(".gdo-inspector");
     const w = el ? el.getBoundingClientRect().width : 360;
     const half = Math.round(w / 2);
     // xl: inspector on right → negative x offset; lg: inspector on left → positive x offset
@@ -308,7 +308,7 @@ function RouterRoot() {
   );
 }
 
-createRoot(document.getElementById("electronics-root")).render(
+createRoot(document.getElementById("gdo-root")).render(
   <BrowserRouter>
     <RouterRoot />
   </BrowserRouter>
