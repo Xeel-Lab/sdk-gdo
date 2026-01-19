@@ -14,16 +14,12 @@ const PER_ENTRY_CSS_IGNORE = "**/*.module.*".split(",").map((s) => s.trim());
 const GLOBAL_CSS_LIST = [path.resolve("src/index.css")];
 
 const targets: string[] = [
-  "todo",
-  "solar-system",
   "gdo",
   "gdo-carousel",
   "gdo-list",
   "gdo-albums",
   "gdo-shop",
   "mixed-auth-search",
-  "mixed-auth-past-orders",
-  "kitchen-sink-lite",
   "shopping-cart",
 ];
 
@@ -86,7 +82,7 @@ function generateCssSourcemaps(): Plugin {
           mappings: "AAAA",
           names: [],
         };
-        
+
         return {
           code,
           map: map as any,

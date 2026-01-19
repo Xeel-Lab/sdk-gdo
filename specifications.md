@@ -946,7 +946,7 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
 
 #### 8.2.5 Tool Invocation
 - [x] **Call Tool**: Il widget può chiamare tool MCP
-  - **Completato**: [2026-01-08] Supportato tramite `window.openai.callTool()` (vedi `kitchen-sink-lite/kitchen-sink-lite.tsx` per esempio). Il widget `gdo-shop` non chiama tool direttamente, il che è appropriato perché ChatGPT gestisce l'orchestrazione dei tool.
+  - **Completato**: [2026-01-08] Supportato tramite `window.openai.callTool()`. Il widget `gdo-shop` non chiama tool direttamente, il che è appropriato perché ChatGPT gestisce l'orchestrazione dei tool.
 - [x] **Tool Invocation dal Widget**: Verificare se il widget deve chiamare tool direttamente
     - Riceve dati da `toolOutput` quando ChatGPT chiama i tool
     - Aggiorna lo stato localmente e lo sincronizza con ChatGPT

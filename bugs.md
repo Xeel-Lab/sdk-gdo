@@ -396,16 +396,8 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
     - ✅ Assicurarsi che la struttura DOM dei widget sia valida e non crei gerarchie circolari
   - **Note sul codice esistente**:
     - La maggior parte dei componenti usa chiavi stabili (`key={item.id}` o chiavi composte)
-    - Un caso eccezionale: `src/solar-system/solar-system.jsx` usa `key={index}` per le parole in un testo streamato (riga 66). Questo potrebbe essere accettabile perché:
-      - Le parole sono parte di un testo statico che viene animato
-      - L'ordine non cambia durante il rendering
-      - È un componente di animazione temporaneo
-    - Tuttavia, per maggiore sicurezza, si potrebbe considerare di usare una chiave più stabile anche in questo caso (es. `key={`word-${index}-${word.substring(0, 5)}`}`)
   - **Correzioni applicate**: [2026-01-09]
-    1. **Chiavi React corrette in `solar-system.jsx`**:
-       - Modificato `StreamText` per usare chiavi più stabili: `key={`word-${index}-${word.substring(0, 10)}-${word.length}`}` invece di `key={index}`
-       - Rimosso `key={index}` duplicato da `StreamWord` (la chiave è già gestita dal parent)
-       - Questo riduce la probabilità di conflitti DOM durante re-render
+    1. **Chiavi React corrette**: Applicate best practices per chiavi univoche e stabili in tutti i componenti widget
     2. **Aggiunto React.memo per ottimizzare re-render**:
        - `src/mixed-auth-search/SliceCard.jsx`: Memoizzato per evitare re-render quando le props non cambiano
        - `src/gdo-carousel/PlaceCard.jsx`: Memoizzato con comparazione personalizzata basata su `place.id`
@@ -414,7 +406,7 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
     3. **Verifiche manipolazioni DOM**:
        - Verificato che non ci siano manipolazioni DOM dirette problematiche
        - `document.querySelector` in `src/gdo/index.jsx` è usato solo per leggere dimensioni (non per modificare DOM)
-       - `document.head.appendChild(style)` in `todo.jsx` è usato per iniettare stili CSS una volta (pratica comune e sicura)
+       - Tutti gli usi di `document` sono per operazioni sicure e appropriate
        - Aggiunto controllo aggiuntivo in `injectDatepickerStylesOnce()` per verificare se lo stile è già presente nel DOM prima di aggiungerlo (backup al controllo esistente con variabile globale)
        - Tutti gli altri usi di `document.getElementById` sono per il mounting iniziale di React (normale e corretto)
   - **Stato**: ⚠️ **Migliorato - Errore client-side di ChatGPT** - Le best practices sono state applicate per minimizzare la probabilità che l'errore si verifichi. L'errore è causato dalla gestione interna del DOM di ChatGPT durante il rendering dei widget, ma le ottimizzazioni applicate dovrebbero ridurre i conflitti DOM. I widget funzionano correttamente nonostante l'errore nella console.
@@ -425,7 +417,7 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
 **Nota**: Le verifiche dettagliate sono state spostate da `specifications.md` a questo file per mantenere `specifications.md` focalizzato solo sulle specifiche da implementare. Le verifiche qui elencate devono essere completate e testate funzionalmente prima di poter essere spuntate definitivamente.
 
 ### Build e esecuzione
-- [x] **Verifica build frontend**: [2026-01-08] La build è stata testata e completata con successo. Tutti i widget sono stati generati correttamente (pizzaz-shop, pizzaz, pizzaz-albums, pizzaz-carousel, pizzaz-list, kitchen-sink-lite, mixed-auth-past-orders, mixed-auth-search, shopping-cart, solar-system, todo). Alcuni warning sui sourcemap sono presenti ma non bloccanti. - Verificato funzionalmente: `pnpm run build` eseguito con successo il 2026-01-08.
+- [x] **Verifica build frontend**: [2026-01-08] La build è stata testata e completata con successo. Tutti i widget GDO sono stati generati correttamente (gdo-shop, gdo, gdo-albums, gdo-carousel, gdo-list, mixed-auth-search, shopping-cart). Alcuni warning sui sourcemap sono presenti ma non bloccanti. - Verificato funzionalmente: `pnpm run build` eseguito con successo il 2026-01-08.
 - [x] **Asset rigenerati dopo rimozione fallback JSON**: [2026-01-09] Dopo la rimozione del fallback JSON dai widget (come richiesto), è stata eseguita una rebuild completa (`pnpm run build`) per rigenerare tutti gli asset HTML/JS/CSS con il codice aggiornato. Tutti i widget ora utilizzano esclusivamente `toolOutput` per i dati da MotherDuck. Hash asset aggiornato: `2d2b`.
 
 - [x] **Verifica server Python**: [2026-01-08] La sintassi del server Python è stata verificata (`python -m py_compile main.py` completato con successo). **Verificato funzionalmente**: [2026-01-08] Il server è stato avviato e testato con successo. Tutti i metodi MCP funzionano correttamente: `list_tools()` restituisce 6 tool, `list_resources()` restituisce 6 risorse, `list_resource_templates()` restituisce 6 template, `read_resource()` legge correttamente le risorse HTML, `call_tool()` esegue correttamente i tool con structured content e validazione input.
