@@ -596,6 +596,43 @@ def rank_products_by_criteria(
     return sorted_products
 
 
+def _detect_carbonara_request(keywords: List[str] = None, category: str = None) -> bool:
+    """
+    Rileva se la richiesta è relativa alla carbonara controllando keywords e category.
+    
+    Args:
+        keywords: Lista di parole chiave da controllare
+        category: Categoria da controllare
+    
+    Returns:
+        True se viene rilevata una richiesta per carbonara, False altrimenti
+    """
+    if not keywords and not category:
+        return False
+    
+    carbonara_variants = [
+        "carbonara",
+        "pasta alla carbonara",
+        "spaghetti alla carbonara",
+        "pasta carbonara",
+        "spaghetti carbonara"
+    ]
+    
+    text_to_check = ""
+    if keywords:
+        text_to_check += " " + " ".join(str(k).lower() for k in keywords)
+    if category:
+        text_to_check += " " + str(category).lower()
+    
+    text_to_check = text_to_check.lower()
+    
+    for variant in carbonara_variants:
+        if variant in text_to_check:
+            return True
+    
+    return False
+
+
 async def get_products_from_motherduck(category: str = None, product_ids: List[int] = None):
     """
     Recupera i prodotti alimentari dal database MotherDuck, opzionalmente filtrati per categoria o ID.
@@ -616,9 +653,9 @@ async def get_products_from_motherduck(category: str = None, product_ids: List[i
             # Database: app_gpt_gdo.main.products_xeel_shop
             # Colonne: ID, company, description, price, categories
             if product_ids:
-                # Se sono specificati ID, filtra direttamente nella query SQL
+                # Se sono specificati ID, filtra direttamente nella query SQL usando il percorso completo
                 ids_str = ",".join(str(pid) for pid in product_ids)
-                query = f"SELECT ID, company, description, price, categories FROM products_xeel_shop WHERE ID IN ({ids_str})"
+                query = f"SELECT * FROM app_gpt_gdo.main.products_xeel_shop WHERE id IN ({ids_str})"
                 logger.info(f"Filtering products by IDs: {product_ids}")
             else:
                 query = "SELECT ID, company, description, price, categories FROM products_xeel_shop"
@@ -3621,6 +3658,23 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             # Widget che usano formato 'places' - recupera prodotti e trasforma in places
             # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
             # Non aggiungere mai prodotti di altre categorie per "riempire" la lista/carosello
+            
+            # ECCEZIONE HARDCODED: Carbonara per gdo-list
+            # Se viene rilevata una richiesta per carbonara, imposta automaticamente i product_ids specifici
+            if tool_name == "gdo-list":
+                keywords_list = keywords if isinstance(keywords, list) else [keywords] if keywords else []
+                if _detect_carbonara_request(keywords=keywords_list, category=category):
+                    CARBONARA_PRODUCT_IDS = [3, 938, 2108, 2127, 2111]
+                    product_ids = CARBONARA_PRODUCT_IDS
+                    category = None
+                    keywords = None
+                    if "keywords" in criteria:
+                        del criteria["keywords"]
+                    logger.info(
+                        f"Tool {tool_name}: Carbonara request detected. "
+                        f"Automatically setting product_ids to {CARBONARA_PRODUCT_IDS}"
+                    )
+            
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
             products = await get_products_from_motherduck(category=category, product_ids=product_ids)
             

@@ -23,6 +23,8 @@ Se l'utente chiede di preparare una **carbonara** (o "pasta alla carbonara", "sp
    - **IMPORTANTE**: Usa il parametro `product_ids` direttamente nel tool `gdo-list`
    - la lista mostrerà esattamente questi 5 prodotti dal database
    - ❌ **NON includere** altri prodotti oltre a questi 5 ID specifici
+   - **NOTA**: Il server ha logica hardcoded che rileva automaticamente richieste per carbonara e imposta questi product_ids
+   - **QUERY**: Quando viene rilevata la carbonara, il server esegue: `SELECT * FROM app_gpt_gdo.main.products_xeel_shop WHERE id IN (3, 938, 2108, 2127, 2111)`
 
 ---
 
