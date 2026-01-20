@@ -596,12 +596,13 @@ def rank_products_by_criteria(
     return sorted_products
 
 
-async def get_products_from_motherduck(category: str = None):
+async def get_products_from_motherduck(category: str = None, product_ids: List[int] = None):
     """
-    Recupera i prodotti alimentari dal database MotherDuck, opzionalmente filtrati per categoria.
+    Recupera i prodotti alimentari dal database MotherDuck, opzionalmente filtrati per categoria o ID.
     
     Args:
         category: Categoria opzionale per filtrare i prodotti (es. "Ortofrutta", "Carne e pollame", "Pesce e prodotti ittici")
+        product_ids: Lista opzionale di ID specifici da recuperare (es. [3, 938, 2108, 2127, 2111])
     
     Returns:
         List[Dict[str, Any]]: Lista di prodotti come dizionari Python.
@@ -614,15 +615,21 @@ async def get_products_from_motherduck(category: str = None):
             # La tabella è nello schema 'main' (impostato in get_motherduck_connection)
             # Database: app_gpt_gdo.main.products_xeel_shop
             # Colonne: ID, company, description, price, categories
-            query = "SELECT ID, company, description, price, categories FROM products_xeel_shop"
+            if product_ids:
+                # Se sono specificati ID, filtra direttamente nella query SQL
+                ids_str = ",".join(str(pid) for pid in product_ids)
+                query = f"SELECT ID, company, description, price, categories FROM products_xeel_shop WHERE ID IN ({ids_str})"
+                logger.info(f"Filtering products by IDs: {product_ids}")
+            else:
+                query = "SELECT ID, company, description, price, categories FROM products_xeel_shop"
             logger.debug(f"Executing query: {query}")
             products_df = con.execute(query).fetchdf()
             
             # Converti DataFrame in lista di dizionari per compatibilità JSON
             products = products_df.to_dict(orient="records")
             
-            # Filtra per categoria se specificata
-            if category:
+            # Filtra per categoria se specificata (solo se non sono già stati filtrati per ID)
+            if category and not product_ids:
                 original_count = len(products)
                 logger.info(f"🔍 Applying category filter '{category}' to {original_count} products")
                 products = filter_products_by_category(products, category)
@@ -643,9 +650,19 @@ async def get_products_from_motherduck(category: str = None):
             
             # Log per audit
             if products:
-                logger.info(f"Retrieved {len(products)} products from MotherDuck" + (f" (filtered by category: {category})" if category else ""))
+                log_msg = f"Retrieved {len(products)} products from MotherDuck"
+                if product_ids:
+                    log_msg += f" (filtered by IDs: {product_ids})"
+                elif category:
+                    log_msg += f" (filtered by category: {category})"
+                logger.info(log_msg)
             else:
-                logger.warning("No products retrieved from MotherDuck (empty result)" + (f" for category: {category}" if category else ""))
+                log_msg = "No products retrieved from MotherDuck (empty result)"
+                if product_ids:
+                    log_msg += f" for IDs: {product_ids}"
+                elif category:
+                    log_msg += f" for category: {category}"
+                logger.warning(log_msg)
             
             return products
     except ValueError as e:
@@ -1353,6 +1370,11 @@ CATEGORY_FILTER_INPUT_SCHEMA: Dict[str, Any] = {
             "type": "array",
             "items": {"type": "string"},
             "description": "Lista di parole chiave da cercare nel nome o descrizione del prodotto. I prodotti che corrispondono a più parole chiave avranno priorità più alta.",
+        },
+        "product_ids": {
+            "type": "array",
+            "items": {"type": "integer"},
+            "description": "Lista di ID specifici di prodotti da recuperare dal database (es. [3, 938, 2108, 2127, 2111]). Usa questo parametro quando devi recuperare prodotti specifici per ID. Se specificato, questo parametro ha priorità su category e keywords.",
         },
     },
     "required": [],
@@ -3503,6 +3525,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         max_price = arguments.get("max_price") if arguments else None
         min_price = arguments.get("min_price") if arguments else None
         keywords = arguments.get("keywords") if arguments else None
+        product_ids = arguments.get("product_ids") if arguments else None
         
         # Costruisci il dizionario dei criteri di ordinamento
         criteria = {}
@@ -3528,7 +3551,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         if tool_name == "product-list":
             # Tool che richiede accesso a MotherDuck
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck")
-            products = await get_products_from_motherduck(category=category)
+            products = await get_products_from_motherduck(category=category, product_ids=product_ids)
             product_count = len(products) if products else 0
             if product_count == 0:
                 # Se la lista è vuota, potrebbe essere dovuto a:
@@ -3559,7 +3582,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
             # Non aggiungere mai prodotti di altre categorie per "riempire" la galleria
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to albums")
-            products = await get_products_from_motherduck(category=category)
+            products = await get_products_from_motherduck(category=category, product_ids=product_ids)
             if category:
                 logger.info(
                     f"Tool {tool_name}: Filtered {len(products)} products for category '{category}'. "
@@ -3599,7 +3622,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
             # Non aggiungere mai prodotti di altre categorie per "riempire" la lista/carosello
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
-            products = await get_products_from_motherduck(category=category)
+            products = await get_products_from_motherduck(category=category, product_ids=product_ids)
             
             # Limiti per evitare risposte troppo grandi
             MAX_CAROUSEL_PRODUCTS = 6
@@ -3674,7 +3697,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             # gdo-shop recupera prodotti dal database MotherDuck e li trasforma in places
             # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
-            products = await get_products_from_motherduck(category=category)
+            products = await get_products_from_motherduck(category=category, product_ids=product_ids)
             
             # Limita a MAX_PRODUCTS_SHOP (24) per evitare risposte troppo grandi
             MAX_SHOP_PRODUCTS = 24

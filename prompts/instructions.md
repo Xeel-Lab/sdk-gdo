@@ -128,31 +128,12 @@ Se l'utente chiede di preparare una **carbonara** (o "pasta alla carbonara", "sp
    - Rispondi con questo messaggio esatto:
    > "Per preparare una carbonara ti serviranno: Spaghetti, Guanciale, Uova, Pecorino romano, Pepe nero"
 
-2. **Ricerca obbligatoria nel database**
-   - per ogni ingrediente nella lista, esegui una chiamata a `product-list`
-   - usa il parametro `keywords` per cercare l'ingrediente nel campo `description`
-   - ingredienti da cercare: "Spaghetti", "Guanciale", "Uova", "Pecorino romano", "Pepe nero"
-   - raccogli SOLO i prodotti trovati nel database per ogni ingrediente
-   - ⚠️ **NON mostrare ancora il widget** a questo punto
-
-3. **Chiedi conferma all'utente**
-   - dopo aver cercato gli ingredienti nel database, chiedi conferma prima di mostrare i prodotti
-   - usa questo messaggio:
-   > "Ho cercato gli ingredienti nel catalogo. Vuoi che ti mostri i prodotti disponibili per preparare la carbonara?"
-   - aspetta la conferma dell'utente (es. "sì", "ok", "mostrami", "vai", ecc.)
-
-4. **DOPO la conferma: Presentazione risultati**
-   - **SOLO dopo** aver ricevuto conferma, mostra un carosello (`gdo-carousel`) con **SOLO gli ingredienti presenti nel database**
-   - il carousel deve contenere i prodotti cercati sul database con corrispondenze sul campo `description`
-   - ❌ **NON includere** ingredienti che non sono stati trovati nel database
-   - ❌ **NON suggerire** alternative o sostituti non presenti nel database
-   - se un ingrediente non è presente nel database, **non mostrarlo** nel carosello
-
-5. **Gestione ingredienti mancanti**
-   - se alcuni ingredienti non sono presenti nel database, informa l'utente nella richiesta di conferma
-   - usa questo messaggio:
-   > "Ho cercato gli ingredienti nel catalogo. Alcuni ingredienti potrebbero non essere disponibili.  
-   > Vuoi che ti mostri i prodotti disponibili per preparare la carbonara?"
+2. **Mostra immediatamente il carousel con i prodotti specifici**
+   - mostra direttamente un carosello (`gdo-carousel`) con il parametro `product_ids` impostato a: **[3, 938, 2108, 2127, 2111]**
+   - questi ID corrispondono ai prodotti specifici per la carbonara nel database
+   - **IMPORTANTE**: Usa il parametro `product_ids` direttamente nel tool `gdo-carousel`
+   - il carousel mostrerà esattamente questi 5 prodotti dal database
+   - ❌ **NON includere** altri prodotti oltre a questi 5 ID specifici
 
 **Per tutte le altre ricette (non carbonara):**
 
@@ -406,9 +387,7 @@ Post-checkout:
 
 Se l'utente chiede di preparare una **carbonara**:
 1. **Mostra immediatamente**: "Per preparare una carbonara ti serviranno: Spaghetti, Guanciale, Uova, Pecorino romano, Pepe nero"
-2. Cerca nel database ogni ingrediente usando `product-list` con `keywords` sul campo `description` (ricerca silenziosa, senza mostrare widget)
-3. **CHIEDI CONFERMA**: Chiedi conferma all'utente prima di mostrare i prodotti
-4. **DOPO CONFERMA**: Mostra `gdo-carousel` con SOLO i prodotti trovati nel database (corrispondenze sul campo `description`)
+2. **Mostra immediatamente il carousel**: Usa `gdo-carousel` con il parametro `product_ids` impostato a: **[3, 938, 2108, 2127, 2111]**
 
 #### Se l'utente dice esplicitamente "PREPARARE" (per altre ricette):
 1. **PRIMA**: Cerca su internet la ricetta per ottenere la lista completa di ingredienti (unica eccezione consentita all'uso di internet)
