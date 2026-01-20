@@ -1018,9 +1018,13 @@ class CSPMiddleware(BaseHTTPMiddleware):
     """
     
     async def dispatch(self, request: Request, call_next):
-        # Per risposte SSE (/mcp endpoint), passa direttamente senza modificare headers
+        # Per risposte SSE/streaming, passa direttamente senza modificare headers
         # Le risposte SSE sono gestite direttamente da sse-starlette e non seguono il normale flusso HTTP
-        if request.url.path.startswith("/mcp") or request.url.path == "/sse":
+        if (
+            request.url.path.startswith("/mcp")
+            or request.url.path == "/sse"
+            or request.url.path.startswith("/messages")
+        ):
             return await call_next(request)
         
         response = await call_next(request)
@@ -3728,10 +3732,10 @@ async def root_handler(request):
         <strong>GET /</strong> - This page (server information)
     </div>
     <div class="endpoint">
-        <strong>GET /mcp</strong> - SSE stream for MCP protocol
+        <strong>GET /sse</strong> - SSE stream for MCP protocol (main endpoint)
     </div>
     <div class="endpoint">
-        <strong>POST /mcp/messages?sessionId=...</strong> - Send follow-up messages for an active session
+        <strong>GET /mcp</strong> - SSE stream for MCP protocol (internal, redirected from /sse)
     </div>
     <div class="endpoint">
         <strong>GET /assets/*</strong> - Static files (HTML, JS, CSS) from the assets directory
