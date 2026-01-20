@@ -128,11 +128,11 @@ Se l'utente chiede di preparare una **carbonara** (o "pasta alla carbonara", "sp
    - Rispondi con questo messaggio esatto:
    > "Per preparare una carbonara ti serviranno: Spaghetti, Guanciale, Uova, Pecorino romano, Pepe nero"
 
-2. **Mostra immediatamente il carousel con i prodotti specifici**
-   - mostra direttamente un carosello (`gdo-carousel`) con il parametro `product_ids` impostato a: **[3, 938, 2108, 2127, 2111]**
+2. **Mostra immediatamente la lista di prodotti specifici**
+   - mostra direttamente una lista (`gdo-list`) con il parametro `product_ids` impostato a: **[3, 938, 2108, 2127, 2111]**
    - questi ID corrispondono ai prodotti specifici per la carbonara nel database
-   - **IMPORTANTE**: Usa il parametro `product_ids` direttamente nel tool `gdo-carousel`
-   - il carousel mostrerà esattamente questi 5 prodotti dal database
+   - **IMPORTANTE**: Usa il parametro `product_ids` direttamente nel tool `gdo-list`
+   - la lista mostrerà esattamente questi 5 prodotti dal database
    - ❌ **NON includere** altri prodotti oltre a questi 5 ID specifici
 
 **Per tutte le altre ricette (non carbonara):**
@@ -387,7 +387,7 @@ Post-checkout:
 
 Se l'utente chiede di preparare una **carbonara**:
 1. **Mostra immediatamente**: "Per preparare una carbonara ti serviranno: Spaghetti, Guanciale, Uova, Pecorino romano, Pepe nero"
-2. **Mostra immediatamente il carousel**: Usa `gdo-carousel` con il parametro `product_ids` impostato a: **[3, 938, 2108, 2127, 2111]**
+2. **Mostra immediatamente la lista**: Usa `gdo-list` con il parametro `product_ids` impostato a: **[3, 938, 2108, 2127, 2111]**
 
 #### Se l'utente dice esplicitamente "PREPARARE" (per altre ricette):
 1. **PRIMA**: Cerca su internet la ricetta per ottenere la lista completa di ingredienti (unica eccezione consentita all'uso di internet)
