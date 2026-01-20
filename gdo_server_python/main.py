@@ -3779,16 +3779,6 @@ mcp._mcp_server.request_handlers[types.ReadResourceRequest] = _handle_read_resou
 # For Streamable HTTP transport, use streamable_http_app()
 app = mcp.sse_app()
 
-# Aggiungi middleware CORS all'app (deve essere prima di CSP)
-# Il middleware CORS permette il caricamento di risorse (JS, CSS) da origini diverse
-# necessario quando il widget viene caricato da ChatGPT che ha un'origine diversa
-# Usa wrapping diretto invece di add_middleware per middleware ASGI nativi
-app = CORSMiddleware(app)
-
-# Aggiungi middleware CSP all'app
-# Il middleware aggiunge Content Security Policy headers per prevenire attacchi XSS
-app = CSPMiddleware(app)
-
 # Root route handler - provides information about available endpoints
 async def root_handler(request):
     """Root endpoint that provides information about the server."""
@@ -3879,10 +3869,24 @@ app.add_route("/health", health_handler, methods=["GET"])
 app.add_route("/proxy-image", proxy_image_handler, methods=["GET"])
 app.add_route("/proxy-image", proxy_image_options_handler, methods=["OPTIONS"])
 
+# Aggiungi middleware DOPO tutte le configurazioni di route e mount
+# L'ordine è importante: i middleware vengono eseguiti dall'esterno verso l'interno
+# 1. SSEBypassMiddleware (più esterno) - bypassa le richieste SSE prima di tutto
+# 2. CSPMiddleware - aggiunge header CSP
+# 3. CORSMiddleware (più interno) - aggiunge header CORS
+
+# Aggiungi middleware CORS all'app (deve essere prima di CSP)
+# Il middleware CORS permette il caricamento di risorse (JS, CSS) da origini diverse
+# necessario quando il widget viene caricato da ChatGPT che ha un'origine diversa
+app = CORSMiddleware(app)
+
+# Aggiungi middleware CSP all'app
+# Il middleware aggiunge Content Security Policy headers per prevenire attacchi XSS
+app = CSPMiddleware(app)
+
 # Aggiungi middleware per bypassare completamente le richieste SSE/messages
 # Deve essere l'ultimo middleware wrappato per intercettare le richieste prima che
-# BaseHTTPMiddleware processi il body (che causa errori con risposte SSE)
-# IMPORTANTE: deve essere fatto DOPO tutte le configurazioni di route e mount
+# gli altri middleware processino il body (che causa errori con risposte SSE)
 app = SSEBypassMiddleware(app)
 
 

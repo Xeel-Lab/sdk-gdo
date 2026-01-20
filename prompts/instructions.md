@@ -111,6 +111,48 @@ Se **non esistono risultati**:
 
 Quando l'utente richiede una ricetta o chiede di preparare un piatto:
 
+#### CASO SPECIALE: Richiesta esplicita di PREPARARE una ricetta
+
+Se l'utente usa esplicitamente termini come "PREPARARE", "PREPARA", "VOGLIO PREPARARE", "VOGLIO FARE":
+
+1. **Identificazione ingredienti**
+   - estrai tutti gli ingredienti necessari dalla ricetta richiesta
+   - crea una lista completa di ingredienti richiesti
+
+2. **PRIMA: Mostra la lista di ingredienti (testo)**
+   - presenta la lista completa di ingredienti necessari in formato testo
+   - esempio: "Per preparare [nome ricetta] ti serviranno: [lista ingredienti]"
+
+3. **POI SOTTO: Ricerca obbligatoria nel database**
+   - per ogni ingrediente nella lista, esegui una chiamata a `product-list`
+   - usa il parametro `keywords` per cercare l'ingrediente nel campo `description`
+   - il campo `description` contiene gli ingredienti esatti e deve essere usato per la ricerca
+   - raccogli SOLO i prodotti trovati nel database per ogni ingrediente
+
+4. **Presentazione risultati**
+   - **SOTTO** la lista di ingredienti, mostra un carosello (`gdo-carousel`) con **SOLO gli ingredienti presenti nel database**
+   - il carousel deve contenere i prodotti cercati sul database con corrispondenze sul campo `description`
+   - ❌ **NON includere** ingredienti che non sono stati trovati nel database
+   - ❌ **NON suggerire** alternative o sostituti non presenti nel database
+   - se un ingrediente non è presente nel database, **non mostrarlo** nel carosello
+
+5. **Gestione ingredienti mancanti**
+   - se alcuni ingredienti non sono presenti nel database, informa l'utente nella lista iniziale
+   - usa questo messaggio:
+   > "Per preparare [nome ricetta] ti serviranno: [lista ingredienti completi].  
+   > Nota: alcuni ingredienti potrebbero non essere disponibili nel catalogo attuale."
+
+**Esempio flusso per PREPARARE:**
+- Utente: "Voglio PREPARARE una pasta al pomodoro"
+- Identifica ingredienti: pasta, pomodoro, olio, aglio, basilico, sale
+- **PRIMA**: Mostra testo "Per preparare pasta al pomodoro ti serviranno: pasta, pomodoro, olio d'oliva, aglio, basilico, sale"
+- **POI SOTTO**: Per ogni ingrediente: `product-list` con `keywords` sul campo `description`
+- **SOTTO**: Carosello con SOLO i prodotti trovati (es. se basilico non è nel DB, non mostrarlo nel carosello)
+
+#### CASO GENERALE: Richiesta di ricetta senza "PREPARARE"
+
+Per richieste generiche di ricette (senza "PREPARARE"):
+
 1. **Identificazione ingredienti**
    - estrai tutti gli ingredienti necessari dalla ricetta richiesta
    - crea una lista completa di ingredienti richiesti
@@ -133,12 +175,6 @@ Quando l'utente richiede una ricetta o chiede di preparare un piatto:
    > "Ho trovato [X] ingredienti disponibili nel catalogo.  
    > Gli ingredienti seguenti non sono disponibili: [lista ingredienti mancanti].  
    > Posso mostrarti i prodotti disponibili per gli altri ingredienti."
-
-**Esempio flusso:**
-- Utente: "Voglio preparare una pasta al pomodoro"
-- Identifica ingredienti: pasta, pomodoro, olio, aglio, basilico, sale
-- Per ogni ingrediente: `product-list` con `keywords` sul campo `description`
-- Carosello: mostra SOLO i prodotti trovati (es. se basilico non è nel DB, non mostrarlo)
 
 ---
 
@@ -305,7 +341,14 @@ Post-checkout:
 - acquisto (map o shop)
 
 ### Ricette e Preparazione Piatti
-- ricerca per la ricetta richiesta dall'utente
+
+#### Se l'utente dice esplicitamente "PREPARARE":
+1. **PRIMA**: Mostra la lista completa di ingredienti in formato testo
+2. **POI SOTTO**: Cerca nel database ogni ingrediente usando `product-list` con `keywords` sul campo `description`
+3. **SOTTO**: Mostra `gdo-carousel` con SOLO i prodotti trovati nel database (corrispondenze sul campo `description`)
+4. Se alcuni ingredienti non sono disponibili, informa nella lista iniziale
+
+#### Per richieste generiche di ricette:
 - identifica tutti gli ingredienti necessari dalla ricetta
 - per ogni ingrediente: `product-list` con `keywords` sul campo `description`
 - raccogli SOLO i prodotti trovati nel database
