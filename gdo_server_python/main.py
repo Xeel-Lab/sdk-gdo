@@ -81,6 +81,7 @@ from starlette.staticfiles import StaticFiles
 from starlette.routing import Mount, Route
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import HTMLResponse as StarletteHTMLResponse, Response
+from starlette.types import ASGIApp, Scope, Receive, Send
 from mcp.server.transport_security import TransportSecuritySettings
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 import httpx
@@ -941,6 +942,30 @@ def _transport_security_settings() -> TransportSecuritySettings:
         allowed_hosts=allowed_hosts,
         allowed_origins=allowed_origins,
     )
+
+
+class SSEBypassMiddleware:
+    """
+    Middleware ASGI personalizzato per bypassare completamente le richieste SSE/messages.
+    Questo middleware deve essere il primo per evitare che BaseHTTPMiddleware processi
+    il body delle risposte SSE, che hanno un formato ASGI particolare.
+    """
+    
+    def __init__(self, app: ASGIApp):
+        self.app = app
+    
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] == "http":
+            path = scope.get("path", "")
+            if (
+                path.startswith("/mcp")
+                or path == "/sse"
+                or path.startswith("/messages")
+            ):
+                await self.app(scope, receive, send)
+                return
+        
+        await self.app(scope, receive, send)
 
 
 class CORSMiddleware(BaseHTTPMiddleware):
@@ -3684,6 +3709,11 @@ app.add_middleware(CORSMiddleware)
 # Aggiungi middleware CSP all'app
 # Il middleware aggiunge Content Security Policy headers per prevenire attacchi XSS
 app.add_middleware(CSPMiddleware)
+
+# Aggiungi middleware per bypassare completamente le richieste SSE/messages
+# Deve essere l'ultimo middleware wrappato per intercettare le richieste prima che
+# BaseHTTPMiddleware processi il body (che causa errori con risposte SSE)
+app = SSEBypassMiddleware(app)
 
 # Root route handler - provides information about available endpoints
 async def root_handler(request):
