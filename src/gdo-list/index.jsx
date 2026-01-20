@@ -38,10 +38,10 @@ function App() {
           ></div>
           <div>
             <div className="text-base sm:text-xl font-medium">
-              Top Electronics Products
+              Prodotti GDO
             </div>
             <div className="text-sm text-black/60">
-              A ranking of the best electronics products
+              Una selezione dei migliori prodotti alimentari
             </div>
           </div>
           <div className="flex-auto hidden sm:flex justify-end pr-2">

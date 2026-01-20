@@ -67,23 +67,23 @@
       ]
     },
     {
-      "id": "electronics-showcase",
-      "title": "Electronics Showcase",
+      "id": "gdo-showcase",
+      "title": "Vetrina GDO",
       "cover": "https://persistent.oaistatic.com/electronics/electronics-1.png",
       "photos": [
         {
-          "id": "smartphone-collection",
-          "title": "Smartphone Collection",
+          "id": "ortofrutta-collection",
+          "title": "Ortofrutta",
           "url": "https://persistent.oaistatic.com/electronics/electronics-2.png"
         },
         {
-          "id": "laptop-series",
-          "title": "Laptop Series",
+          "id": "carne-series",
+          "title": "Carne e Pollame",
           "url": "https://persistent.oaistatic.com/electronics/electronics-3.png"
         },
         {
-          "id": "audio-devices",
-          "title": "Audio Devices",
+          "id": "pesce-devices",
+          "title": "Pesce e Prodotti Ittici",
           "url": "https://persistent.oaistatic.com/electronics/electronics-6.png"
         },
         {

@@ -43,20 +43,28 @@ const MAX_PRODUCTS_SHOP = 24; // Limite massimo di prodotti da visualizzare nell
 
 // Mappa delle categorie principali con i loro tag associati
 const CATEGORY_MAPPING: Record<string, string[]> = {
-  "Video & TV": [
-    "tv", "televisions", "tv accessories", "tv mounts", "projectors", 
-    "video projectors", "dvd players", "blu-ray players", "blu-ray", 
-    "video", "home theater"
+  "Ortofrutta": [
+    "ortofrutta", "verdura", "frutta", "verdure fresche", "frutta fresca",
+    "frutta secca", "frutta disidratata", "insalata", "pomodori", "zucchine",
+    "peperoni", "melanzane", "carote", "patate", "cipolle", "aglio",
+    "mele", "pere", "banane", "arance", "limoni", "uva", "fragole"
   ],
-  "Informatica": [
-    "computers", "desktop computers", "monitors", "tablets", 
-    "printers", "scanners", "computer accessories", "pc components", 
-    "input devices", "keyboards", "mice", "laptops"
+  "Carne e pollame": [
+    "carne", "pollame", "carne bovina", "carne suina", "carne avicola",
+    "carne ovina", "preparati di carne", "manzo", "vitello", "maiale",
+    "pollo", "tacchino", "anatra", "coniglio", "hamburger", "polpette",
+    "salsicce", "bistecche", "fettine", "macinato"
   ],
-  "Audio": [
-    "audio", "speakers", "wireless speakers", "bluetooth speakers", 
-    "headphones", "home audio", "home theater", "home theater systems", 
-    "microphones", "amplifiers", "stereos", "portable audio"
+  "Pesce e prodotti ittici": [
+    "pesce", "prodotti ittici", "pesce fresco", "pesce surgelato",
+    "crostacei", "molluschi", "preparati ittici", "salmone", "tonno",
+    "branzino", "orata", "gamberi", "gamberetti", "cozze", "vongole",
+    "calamari", "polpo", "surgelati pesce"
+  ],
+  "Latticini e uova": [
+    "latticini", "uova", "formaggi", "latte", "yogurt", "burro",
+    "panna", "mozzarella", "parmigiano", "ricotta", "stracchino",
+    "gorgonzola", "pecorino", "provolone", "fontina", "asiago"
   ],
 };
 
@@ -219,7 +227,7 @@ const formatPrice = (value: number) => `€${value.toFixed(2)}`;
 // Funzione per estrarre le categorie disponibili dai prodotti
 const getAvailableCategories = (items: CartItem[]): Array<{ id: string; label: string; tags: string[] }> => {
   const categoryCounts: Record<string, number> = {};
-  
+
   // Conta quanti prodotti appartengono a ciascuna categoria
   items.forEach((item) => {
     const tags = item.tags ?? [];
@@ -232,12 +240,12 @@ const getAvailableCategories = (items: CartItem[]): Array<{ id: string; label: s
       }
     });
   });
-  
+
   // Crea filtri solo per categorie che hanno almeno un prodotto
   const filters: Array<{ id: string; label: string; tags: string[] }> = [
     { id: "all", label: "All", tags: [] },
   ];
-  
+
   Object.entries(CATEGORY_MAPPING)
     .filter(([category]) => categoryCounts[category] > 0)
     .sort(([a], [b]) => (categoryCounts[b] || 0) - (categoryCounts[a] || 0))
@@ -248,7 +256,7 @@ const getAvailableCategories = (items: CartItem[]): Array<{ id: string; label: s
         tags,
       });
     });
-  
+
   return filters;
 };
 
@@ -610,8 +618,8 @@ function App() {
             item.highlights != null
               ? [...item.highlights]
               : defaultItem.highlights
-              ? [...defaultItem.highlights]
-              : undefined,
+                ? [...defaultItem.highlights]
+                : undefined,
         };
 
         return cloneCartItem(enriched);
@@ -679,7 +687,7 @@ function App() {
   // Access modal information via toolResponseMetadata if available
   // Note: "view" is not a valid key in OpenAiGlobals, so we use toolResponseMetadata instead
   const toolResponseMetadata = useOpenAiGlobal("toolResponseMetadata") as Record<string, unknown> | null;
-  const viewParams = toolResponseMetadata && typeof toolResponseMetadata === "object" 
+  const viewParams = toolResponseMetadata && typeof toolResponseMetadata === "object"
     ? (toolResponseMetadata as { params?: unknown })
     : null;
   const viewParamsObj = viewParams?.params && typeof viewParams.params === "object"
@@ -692,12 +700,12 @@ function App() {
   const modalParams =
     viewParamsObj && typeof viewParamsObj === "object"
       ? (viewParamsObj as {
-          state?: unknown;
-          cartItems?: unknown;
-          subtotal?: unknown;
-          total?: unknown;
-          totalItems?: unknown;
-        })
+        state?: unknown;
+        cartItems?: unknown;
+        subtotal?: unknown;
+        total?: unknown;
+        totalItems?: unknown;
+      })
       : null;
 
   const modalState =
@@ -819,11 +827,11 @@ function App() {
         anchorRect == null
           ? undefined
           : {
-              top: anchorRect.top,
-              left: anchorRect.left,
-              width: anchorRect.width,
-              height: anchorRect.height,
-            };
+            top: anchorRect.top,
+            left: anchorRect.left,
+            width: anchorRect.width,
+            height: anchorRect.height,
+          };
 
       void (async () => {
         try {
@@ -986,8 +994,8 @@ function App() {
     const observer =
       typeof ResizeObserver !== "undefined"
         ? new ResizeObserver(() => {
-            requestAnimationFrame(updateItemColumnPlacement);
-          })
+          requestAnimationFrame(updateItemColumnPlacement);
+        })
         : null;
 
     observer?.observe(node);

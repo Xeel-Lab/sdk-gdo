@@ -3454,6 +3454,10 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
             products = await get_products_from_motherduck(category=category)
             
+            # Limiti per evitare risposte troppo grandi
+            MAX_CAROUSEL_PRODUCTS = 6
+            MAX_LIST_PRODUCTS = 100  # Limite per gdo-list per evitare risposte troppo grandi
+            
             # Per gdo-carousel, limita a 6 prodotti se viene passata una categoria
             # IMPORTANTE: Non aggiungere prodotti di altre categorie se il filtro ne trova meno di 6
             # Il limite è un MASSIMO, non un obbligo - se ci sono solo 3 prodotti filtrati, mostra solo quelli
@@ -3462,8 +3466,8 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                     f"Tool {tool_name}: Filtered {len(products)} products for category '{category}'. "
                     "Showing only filtered products (no unrelated products will be added)."
                 )
+            
             if tool_name == "gdo-carousel" and category:
-                MAX_CAROUSEL_PRODUCTS = 6
                 original_count = len(products)
                 if original_count > MAX_CAROUSEL_PRODUCTS:
                     products = products[:MAX_CAROUSEL_PRODUCTS]
@@ -3475,6 +3479,17 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                     logger.info(
                         f"Tool {tool_name}: Found {original_count} products for category '{category}' "
                         f"(showing all {original_count}, no need to add unrelated products)"
+                    )
+            
+            # Per gdo-list, limita il numero di prodotti se non c'è un filtro categoria
+            # per evitare risposte troppo grandi che causano errori HTTP
+            if tool_name == "gdo-list" and not category:
+                original_count = len(products)
+                if original_count > MAX_LIST_PRODUCTS:
+                    products = products[:MAX_LIST_PRODUCTS]
+                    logger.info(
+                        f"Tool {tool_name}: Limited products from {original_count} to {len(products)} "
+                        f"(max {MAX_LIST_PRODUCTS} for list without category filter to avoid large responses)"
                     )
             
             # Trasforma i prodotti in places, applicando l'ordinamento basato sui criteri

@@ -94,7 +94,7 @@ function App() {
   }
 
   // IMPORTANTE: Il carrello mostra SOLO gli items aggiunti tramite i pulsanti "Aggiungi al carrello" nei widget
-  // NON sincronizziamo da widgetState perché potrebbe contenere prodotti da altri widget (es. electronics-shop)
+  // NON sincronizziamo da widgetState perché potrebbe contenere prodotti da altri widget (es. gdo-shop)
   // Il carrello viene popolato direttamente tramite useWidgetState quando l'utente clicca sui pulsanti nei widget
   
   // Rimuoviamo completamente la sincronizzazione da widgetState per evitare prodotti indesiderati
