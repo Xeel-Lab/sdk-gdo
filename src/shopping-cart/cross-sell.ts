@@ -94,6 +94,16 @@ const RECOMMENDED_TAG = "recommended";
 
 export const crossSellFallbackCatalog: CrossSellItem[] = [
   {
+    id: "cs-vino-frascati-01",
+    sku: "CS-VINO-FRASCATI-01",
+    name: "Frascati Superiore bianco",
+    price: 12.9,
+    imageUrl: "",
+    tags: [POPULAR_TAG, RECOMMENDED_TAG],
+    compatibleWith: ["carne", "pesce", "pasta", "ortofrutta"],
+    priority: 100,
+  },
+  {
     id: "cs-olio-oliva-01",
     sku: "CS-OLIO-OLIVA-01",
     name: "Olio extravergine di oliva",
