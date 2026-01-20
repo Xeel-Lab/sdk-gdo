@@ -7,6 +7,7 @@ import {
   getCrossSellTagLabel,
   type CrossSellItem,
 } from "./cross-sell";
+import { getProductImageUrl } from "../utils/product-image";
 
 type CrossSellSectionProps = {
   cartItems: CartItem[];
@@ -120,7 +121,16 @@ function CrossSellCard({
   formatCurrency: (value: number) => string;
 }) {
   const tagLabel = getCrossSellTagLabel(item.tags);
-  const hasImage = Boolean(item.imageUrl);
+  const cartItem: CartItem = {
+    id: item.id,
+    name: item.name,
+    price: item.price,
+    description: "",
+    quantity: 1,
+    tags: item.tags || [],
+    image: item.imageUrl || "",
+  };
+  const imageUrl = getProductImageUrl(cartItem);
 
   return (
     <div className="flex flex-col rounded-2xl border border-black/10 bg-white/90 p-3 shadow-sm">
@@ -134,18 +144,12 @@ function CrossSellCard({
       </div>
       <div className="mt-3 flex items-center gap-3">
         <div className="h-14 w-14 overflow-hidden rounded-xl border border-black/10 bg-[#f7f3ef]">
-          {hasImage ? (
-            <img
-              src={item.imageUrl}
-              alt={item.name}
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          ) : (
-            <div className="flex h-full w-full items-center justify-center text-[10px] font-semibold text-black/40">
-              Nessuna immagine
-            </div>
-          )}
+          <img
+            src={imageUrl}
+            alt={item.name}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
         </div>
         <div className="flex-1">
           <p className="text-sm font-semibold text-black">{item.name}</p>

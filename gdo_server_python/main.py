@@ -189,6 +189,26 @@ def get_motherduck_connection():
     return con
 
 
+# Mapping delle categorie principali agli URL immagini
+CATEGORY_IMAGE_URLS = {
+    "Ortofrutta": "https://picjumbo.com/fresh-colorful-fruits-and-vegetables/",
+    "Carne e pollame": "https://www.bigstockphoto.com/image-398974238/stock-photo-fresh-raw-chicken-meat-and-chicken-parts-black-background-top-view",
+    "Pesce e prodotti ittici": "https://www.vectorstock.com/royalty-free-vector/seafood-vector-5372182",
+    "Salumi e affettati": "https://millennialmagazine.com/2025/02/27/italian-cold-cuts/",
+    "Latticini e uova": "https://www.freeimages.com/premium/dairy-products-and-eggs-isolated-on-white-651700",
+    "Panetteria e prodotti da forno": "https://www.publicdomainpictures.net/en/view-image.php?image=534534&picture=various-fresh-bread",
+    "Pasta, riso e cereali": "https://www.colourbox.com/image/dried-pasta-rice-image-16237250",
+    "Gastronomia pronta": "https://depositphotos.com/photo/388240657/stock-photo-variety-of-ready-meals-in-trays.html",
+    "Surgelati": "https://depositphotos.com/photo/415375170/assortment-of-frozen-vegetables-on-ice.html",
+    "Dispensa / grocery secco": "https://biritegrocery.com/products/dry-goods/",
+    "Dolci e snack": "https://www.freeimages.com/photo/sweets-1329905",
+    "Bevande": "https://www.bigstockphoto.com/image-195711415/stock-photo-bottles-of-assorted-global-soft-drinks",
+    "Alimentazione vegetale / plant-based": "https://foodinsight.org/what-does-eating-a-plant-based-diet-mean/",
+    "Integratori e benessere alimentare": "https://www.bigstockphoto.com/image-327606634/stock-photo-nutritional-supplement-and-vitamin-supplements-as-a-capsule-with-fruit-vegetables-nuts-and-beans-ins",
+}
+
+PLACEHOLDER_IMAGE_URL = "https://via.placeholder.com/400x300?text=Product+Image"
+
 # Mapping delle categorie principali ai tag associati (stesso mapping del frontend)
 CATEGORY_MAPPING = {
     "Ortofrutta": [
@@ -266,6 +286,43 @@ CATEGORY_MAPPING = {
         "omega 3", "probiotici", "proteine in polvere"
     ],
 }
+
+
+def _get_primary_category(product: Dict[str, Any]) -> str | None:
+    """
+    Determina la categoria principale di un prodotto basandosi sui tag/categorie.
+    
+    Returns:
+        Nome della categoria principale o None se non trovata
+    """
+    categories_raw = _extract_product_categories(product)
+    if not categories_raw:
+        return None
+    
+    normalized_categories = _normalize_text(" ".join(categories_raw))
+    best_category = None
+    best_score = 0
+    
+    for category, category_tags in CATEGORY_MAPPING.items():
+        score = sum(1 for tag in category_tags if tag in normalized_categories)
+        if score > best_score:
+            best_score = score
+            best_category = category
+    
+    return best_category if best_score > 0 else None
+
+
+def _get_product_image_url(product: Dict[str, Any]) -> str:
+    """
+    Restituisce l'URL immagine per un prodotto basato sulla sua categoria.
+    
+    Returns:
+        URL immagine della categoria o placeholder se categoria non trovata
+    """
+    category = _get_primary_category(product)
+    if category and category in CATEGORY_IMAGE_URLS:
+        return CATEGORY_IMAGE_URLS[category]
+    return PLACEHOLDER_IMAGE_URL
 
 
 def filter_products_by_category(products: List[Dict[str, Any]], category: str) -> List[Dict[str, Any]]:
@@ -726,7 +783,7 @@ def transform_products_to_places(
             "description": product.get("description", ""),  # Usa description dal DB
             "city": city,
             "price": price_str,  # Prezzo già stringa, può contenere /kg
-            "thumbnail": "",  # Placeholder vuoto per immagini
+            "thumbnail": _get_product_image_url(product),  # URL immagine basato su categoria
         }
         
         places.append(place)
@@ -1864,8 +1921,8 @@ def _extract_price_from_product(product: Dict[str, Any]) -> float:
 
 
 def _extract_image_url(product: Dict[str, Any]) -> str:
-    """Restituisce un placeholder vuoto per le immagini."""
-    return ""
+    """Restituisce l'URL immagine basato sulla categoria del prodotto."""
+    return _get_product_image_url(product)
 
 
 def _resolve_cart_products(
@@ -3710,11 +3767,6 @@ app.add_middleware(CORSMiddleware)
 # Il middleware aggiunge Content Security Policy headers per prevenire attacchi XSS
 app.add_middleware(CSPMiddleware)
 
-# Aggiungi middleware per bypassare completamente le richieste SSE/messages
-# Deve essere l'ultimo middleware wrappato per intercettare le richieste prima che
-# BaseHTTPMiddleware processi il body (che causa errori con risposte SSE)
-app = SSEBypassMiddleware(app)
-
 # Root route handler - provides information about available endpoints
 async def root_handler(request):
     """Root endpoint that provides information about the server."""
@@ -3804,6 +3856,12 @@ app.add_route("/", root_handler, methods=["GET"])
 app.add_route("/health", health_handler, methods=["GET"])
 app.add_route("/proxy-image", proxy_image_handler, methods=["GET"])
 app.add_route("/proxy-image", proxy_image_options_handler, methods=["OPTIONS"])
+
+# Aggiungi middleware per bypassare completamente le richieste SSE/messages
+# Deve essere l'ultimo middleware wrappato per intercettare le richieste prima che
+# BaseHTTPMiddleware processi il body (che causa errori con risposte SSE)
+# IMPORTANTE: deve essere fatto DOPO tutte le configurazioni di route e mount
+app = SSEBypassMiddleware(app)
 
 
 if __name__ == "__main__":

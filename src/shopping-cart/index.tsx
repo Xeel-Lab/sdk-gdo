@@ -6,6 +6,7 @@ import { AvocadoIcon, BreadIcon, EggIcon, JarIcon, TomatoIcon } from "./icons";
 import CrossSellSection from "./CrossSellSection";
 import type { CartItem } from "../types";
 import ProductDetails from "../utils/ProductDetails";
+import { getProductImageUrl } from "../utils/product-image";
 
 const iconMatchers = [
   { keywords: ["egg", "eggs"], Icon: EggIcon },
@@ -86,7 +87,7 @@ function App() {
             name: item.name,
             price: item.price,
             description: item.description,
-            image: item.image,
+            image: getProductImageUrl(item),
           });
         }
       }
@@ -548,12 +549,18 @@ function App() {
                 cartItems={cartItems}
                 formatCurrency={formatCurrency}
                 onAdd={(item) => {
-                  addToCart({
+                  const crossSellItem: CartItem = {
                     id: item.sku,
                     name: item.name,
                     price: item.price,
                     description: item.tags?.join(", ") ?? "",
-                    image: item.imageUrl ?? "",
+                    quantity: 1,
+                    tags: item.tags,
+                    image: "",
+                  };
+                  addToCart({
+                    ...crossSellItem,
+                    image: getProductImageUrl(crossSellItem),
                   });
                 }}
               />
@@ -717,7 +724,7 @@ function App() {
               name: selectedItem.name,
               price: `$${selectedItem.price.toFixed(2)}`,
               description: selectedItem.description,
-              thumbnail: selectedItem.image,
+              thumbnail: getProductImageUrl(selectedItem),
               stock: selectedItem.stock,
             }}
             onClose={() => setSelectedItem(null)}

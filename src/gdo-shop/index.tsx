@@ -19,6 +19,7 @@ import { useOpenAiGlobal } from "../use-openai-global";
 import { useWidgetProps } from "../use-widget-props";
 import { useWidgetState } from "../use-widget-state";
 import ProductDetails from "../utils/ProductDetails";
+import { getProductImageUrl, getPrimaryCategory } from "../utils/product-image";
 
 import { Button } from "@openai/apps-sdk-ui/components/Button";
 import { Image } from "@openai/apps-sdk-ui/components/Image";
@@ -79,21 +80,6 @@ const getCategoryScore = (item: CartItem, categoryTags: string[]) => {
     );
     return score + (hasMatch ? 1 : 0);
   }, 0);
-};
-
-const getPrimaryCategory = (item: CartItem) => {
-  let bestCategory: string | null = null;
-  let bestScore = 0;
-
-  Object.entries(CATEGORY_MAPPING).forEach(([category, categoryTags]) => {
-    const score = getCategoryScore(item, categoryTags);
-    if (score > bestScore) {
-      bestScore = score;
-      bestCategory = category;
-    }
-  });
-
-  return bestScore > 0 ? bestCategory : null;
 };
 
 const getCpuTier = (text: string) => {
@@ -358,7 +344,7 @@ function SelectedCartItemPanel({
       <div className="overflow-hidden rounded-none border-b border-black/5 bg-white">
         <div className="relative flex items-center justify-center overflow-hidden">
           <Image
-            src={item.image}
+            src={getProductImageUrl(item)}
             alt={item.name}
             className="max-h-[320px] w-[80%] object-cover"
           />
@@ -620,6 +606,9 @@ function App() {
           : []) : [],
       quantity: 1,
       image: place.thumbnail || "",
+    })).map((item) => ({
+      ...item,
+      image: getProductImageUrl(item),
     }));
   }, [placesFromServer]);
 
@@ -1097,7 +1086,7 @@ function App() {
         name: item.name,
         price: getItemPrice(item),
         quantity: Math.max(0, item.quantity),
-        image: item.image,
+        image: getProductImageUrl(item),
       }));
     }
 
@@ -1136,7 +1125,7 @@ function App() {
         name: item.name,
         price: getItemPrice(item),
         quantity: Math.max(0, item.quantity),
-        image: item.image,
+        image: getProductImageUrl(item),
       }));
     }
 
@@ -1261,7 +1250,7 @@ function App() {
         selectedProduct.shortDescription ??
         selectedProduct.detailSummary ??
         selectedProduct.description,
-      thumbnail: selectedProduct.image,
+      thumbnail: getProductImageUrl(selectedProduct),
       stock: selectedProduct.stock,
     };
   }, [selectedProduct]);
@@ -1429,7 +1418,7 @@ function App() {
                     )}
                   >
                     <Image
-                      src={item.image}
+                      src={getProductImageUrl(item)}
                       alt={item.name}
                       className="h-60 w-full object-cover transition-transform duration-200"
                     />
@@ -1529,13 +1518,19 @@ function App() {
                 className="flex items-center gap-3 py-2"
               >
                 <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-white">
-                  {item.image ? (
-                    <Image
-                      src={item.image}
-                      alt={item.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : null}
+                  <Image
+                    src={getProductImageUrl({
+                      id: item.id,
+                      name: item.name,
+                      price: item.price,
+                      description: "",
+                      quantity: item.quantity,
+                      tags: [],
+                      image: item.image || "",
+                    })}
+                    alt={item.name}
+                    className="h-full w-full object-cover"
+                  />
                   <div className="absolute inset-0 bg-black/[0.05]" />
                 </div>
                 <div className="flex min-w-0 flex-1 items-center justify-between gap-3">

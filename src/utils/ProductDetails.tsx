@@ -5,6 +5,7 @@ import SafeImage from "../gdo/SafeImage.jsx";
 import { useProxyBaseUrl } from "../use-proxy-base-url";
 import { useCart } from "../use-cart";
 import type { CartItem } from "../types";
+import { getProductImageUrlFromPlace } from "./product-image";
 
 type ProductDetailsProps = {
   place: {
@@ -250,7 +251,7 @@ export default function ProductDetails({
           </Button>
           <div className="relative mt-2 xl:mt-0 px-2 xl:px-0">
             <SafeImage
-              src={place.thumbnail || ""}
+              src={getProductImageUrlFromPlace(place)}
               alt={place.name}
               className="w-full rounded-3xl xl:rounded-none h-80 object-cover xl:rounded-t-2xl"
               proxyBaseUrl={proxyBaseUrl}
@@ -343,11 +344,20 @@ export default function ProductDetails({
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
                   {displayedRelatedItems.map((item) => {
                     const badgeText = getBadgeText(item);
-                    const imageSrc =
-                      (item as { image?: string; thumbnail?: string }).image ??
-                      (item as { image?: string; thumbnail?: string })
-                        .thumbnail ??
-                      "";
+                    const relatedItem: CartItem = {
+                      id: (item as { id?: string }).id || "",
+                      name: item.name,
+                      price: typeof (item as { price?: number | string }).price === "number"
+                        ? (item as { price?: number | string }).price as number
+                        : typeof (item as { price?: number | string }).price === "string"
+                          ? parseFloat((item as { price?: number | string }).price as string) || 0
+                          : 0,
+                      description: item.description || "",
+                      quantity: 1,
+                      tags: (item as { tags?: string[] }).tags || [],
+                      image: "",
+                    };
+                    const imageSrc = getProductImageUrlFromPlace(item);
                     const priceLabel = getPriceLabel(
                       (item as { price?: number | string }).price
                     );
@@ -358,7 +368,7 @@ export default function ProductDetails({
                         type="button"
                         className="text-left"
                         aria-label={`Open details for ${item.name}`}
-                        onClick={() => onSelectRelated?.(item as CartItem)}
+                        onClick={() => onSelectRelated?.(relatedItem)}
                         disabled={!onSelectRelated}
                       >
                         <div className="overflow-hidden rounded-2xl border border-black/5 bg-white transition hover:border-black/20">
