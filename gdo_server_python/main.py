@@ -422,7 +422,7 @@ def rank_products_by_criteria(
             - max_price: Prezzo massimo desiderato
             - min_price: Prezzo minimo desiderato
             - target_price: Prezzo target (per trovare prodotti con prezzo simile)
-            - keywords: Lista di parole chiave da cercare nel nome/descrizione
+            - keywords: Lista di parole chiave da cercare nel campo description (contiene ingredienti esatti)
     
     Returns:
         Lista di prodotti ordinata per rilevanza rispetto ai criteri
