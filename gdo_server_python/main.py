@@ -3651,9 +3651,10 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                         f"(showing all {original_count}, no need to add unrelated products)"
                     )
             
-            # Per gdo-list, limita il numero di prodotti se non c'è un filtro categoria
+            # Per gdo-list, limita il numero di prodotti se non c'è un filtro categoria o product_ids
             # per evitare risposte troppo grandi che causano errori HTTP
-            if tool_name == "gdo-list" and not category:
+            # IMPORTANTE: Se product_ids è specificato, mostra tutti i prodotti richiesti (non limitare)
+            if tool_name == "gdo-list" and not category and not product_ids:
                 original_count = len(products)
                 if original_count > MAX_LIST_PRODUCTS:
                     products = products[:MAX_LIST_PRODUCTS]
@@ -3661,6 +3662,10 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                         f"Tool {tool_name}: Limited products from {original_count} to {len(products)} "
                         f"(max {MAX_LIST_PRODUCTS} for list without category filter to avoid large responses)"
                     )
+            elif tool_name == "gdo-list" and product_ids:
+                logger.info(
+                    f"Tool {tool_name}: Showing {len(products)} products filtered by product_ids: {product_ids}"
+                )
             
             # Trasforma i prodotti in places, applicando l'ordinamento basato sui criteri
             places = transform_products_to_places(products, criteria=criteria if criteria else None)
