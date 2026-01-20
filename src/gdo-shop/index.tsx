@@ -591,7 +591,45 @@ function App() {
     return pathname === "/checkout" || pathname.endsWith("/checkout");
   }, [location?.pathname]);
 
-  const defaultCartItems = useMemo(() => createDefaultCartItems(), []);
+  // Leggi dati da toolOutput (popolato dal server quando recupera dati da MotherDuck)
+  const toolOutput = useOpenAiGlobal("toolOutput");
+  const placesFromServer = (toolOutput as any)?.places || [];
+
+  // Converti places in CartItem[] per il widget
+  const productsFromServer = useMemo((): CartItem[] => {
+    if (!Array.isArray(placesFromServer)) {
+      return [];
+    }
+    return placesFromServer.map((place: any): CartItem => ({
+      id: place.id || "",
+      name: place.name || place.description || "",
+      price: typeof place.price === "string"
+        ? parseFloat(place.price.replace(/[^\d.,]/g, "").replace(",", ".")) || 0
+        : typeof place.price === "number"
+          ? place.price
+          : 0,
+      description: place.description || "",
+      shortDescription: place.name || place.description || "",
+      detailSummary: "",
+      nutritionFacts: [],
+      highlights: [],
+      tags: place.categories ? (typeof place.categories === "string"
+        ? place.categories.split(",").map((c: string) => c.trim())
+        : Array.isArray(place.categories)
+          ? place.categories
+          : []) : [],
+      quantity: 1,
+      image: place.thumbnail || "",
+    }));
+  }, [placesFromServer]);
+
+  // Usa prodotti dal server se disponibili, altrimenti usa defaultCartItems
+  const defaultCartItems = useMemo((): CartItem[] => {
+    if (productsFromServer.length > 0) {
+      return productsFromServer;
+    }
+    return createDefaultCartItems();
+  }, [productsFromServer]);
   const cartGridRef = useRef<HTMLDivElement | null>(null);
   const [gridColumnCount, setGridColumnCount] = useState(1);
 

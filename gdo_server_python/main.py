@@ -3524,21 +3524,38 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                 )
             )
         elif tool_name == "gdo-shop":
-            # gdo-shop potrebbe recuperare prodotti se necessario
-            # Per ora non recupera prodotti direttamente, ma potrebbe in futuro
-            # Se ha category parameter, potrebbe essere necessario recuperare prodotti
-            if category:
-                logger.info(f"Tool {tool_name}: Category filter requested but gdo-shop doesn't fetch products directly")
-                # Potremmo voler recuperare prodotti in futuro per gdo-shop
-                # Per ora, ignora il filtro categoria per gdo-shop
+            # gdo-shop recupera prodotti dal database MotherDuck e li trasforma in places
+            # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
+            logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
+            products = await get_products_from_motherduck(category=category)
             
-            # Valida che non ci siano altri argomenti inattesi (category è accettato ma ignorato per ora)
-            unexpected_args = [k for k in (arguments.keys() if arguments else []) if k != "category"]
-            if unexpected_args:
-                logger.warning(
-                    f"Tool {tool_name}: Received unexpected arguments: {unexpected_args}. "
-                    "Ignoring arguments as this tool does not require input."
+            # Limita a MAX_PRODUCTS_SHOP (24) per evitare risposte troppo grandi
+            MAX_SHOP_PRODUCTS = 24
+            original_count = len(products)
+            if original_count > MAX_SHOP_PRODUCTS:
+                products = products[:MAX_SHOP_PRODUCTS]
+                logger.info(
+                    f"Tool {tool_name}: Limited products from {original_count} to {len(products)} "
+                    f"(max {MAX_SHOP_PRODUCTS} for shop)"
                 )
+            
+            if category:
+                logger.info(
+                    f"Tool {tool_name}: Filtered {len(products)} products for category '{category}'. "
+                    "Showing only filtered products (no unrelated products will be added)."
+                )
+            
+            # Trasforma i prodotti in places, applicando l'ordinamento basato sui criteri
+            places = transform_products_to_places(products, criteria=criteria if criteria else None)
+            place_count = len(places) if places else 0
+            if place_count == 0:
+                logger.warning(
+                    f"Tool {tool_name}: No products retrieved from MotherDuck. "
+                    "Widget will display empty places list. "
+                    "Check previous logs for errors (e.g., pandas missing, MOTHERDUCK_TOKEN not configured, or database connection issues)."
+                )
+            else:
+                logger.info(f"Tool {tool_name}: Retrieved {len(products)} products, transformed to {place_count} places")
             
             result = types.ServerResult(
                 types.CallToolResult(
@@ -3548,7 +3565,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                             text=widget.response_text,
                         )
                     ],
-                    structuredContent={},
+                    structuredContent={"places": places},
                     _meta=_tool_invocation_meta(widget),
                 )
             )
