@@ -1585,88 +1585,118 @@ CROSS_SELL_FALLBACK_CATALOG: List[Dict[str, Any]] = [
         "price": 8.9,
         "imageUrl": "",
         "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_POPULAR_TAG],
-        "compatibleWith": ["carne", "pesce"],
+        "compatibleWith": ["carne", "pesce", "ortofrutta"],
         "priority": 95,
     },
     {
-        "id": "cs-sale-pepe-01",
-        "sku": "CS-SALE-PEPE-01",
-        "name": "Sale e pepe biologici",
-        "price": 4.9,
+        "id": "cs-sale-01",
+        "sku": "CS-SALE-01",
+        "name": "Sale fino marino",
+        "price": 1.5,
         "imageUrl": "",
-        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_RECOMMENDED_TAG],
-        "compatibleWith": ["carne", "pesce"],
+        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_POPULAR_TAG],
+        "compatibleWith": ["carne", "pesce", "ortofrutta"],
         "priority": 90,
     },
     {
-        "id": "cs-salsa-pomodoro-01",
-        "sku": "CS-SALSA-POMODORO-01",
-        "name": "Passata di pomodoro",
+        "id": "cs-pepe-01",
+        "sku": "CS-PEPE-01",
+        "name": "Pepe nero macinato",
         "price": 2.9,
         "imageUrl": "",
-        "tags": ["salsa", CROSS_SELL_RECOMMENDED_TAG],
-        "compatibleWith": ["pasta"],
-        "priority": 80,
-    },
-    {
-        "id": "cs-pane-01",
-        "sku": "CS-PANE-01",
-        "name": "Pane fresco",
-        "price": 3.5,
-        "imageUrl": "",
-        "tags": ["pane", CROSS_SELL_POPULAR_TAG],
-        "compatibleWith": ["salumi", "formaggi"],
-        "priority": 78,
-    },
-    {
-        "id": "cs-insalata-01",
-        "sku": "CS-INSALATA-01",
-        "name": "Insalata mista",
-        "price": 2.5,
-        "imageUrl": "",
-        "tags": ["insalata", CROSS_SELL_POPULAR_TAG],
+        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_RECOMMENDED_TAG],
         "compatibleWith": ["carne", "pesce"],
-        "priority": 82,
-    },
-    {
-        "id": "cs-aceto-01",
-        "sku": "CS-ACETO-01",
-        "name": "Aceto balsamico di Modena",
-        "price": 6.9,
-        "imageUrl": "",
-        "tags": ["condimento", CROSS_SELL_RECOMMENDED_TAG],
-        "compatibleWith": ["insalata", "ortofrutta"],
-        "priority": 75,
-    },
-    {
-        "id": "cs-limone-01",
-        "sku": "CS-LIMONE-01",
-        "name": "Limoni freschi",
-        "price": 2.9,
-        "imageUrl": "",
-        "tags": ["ortofrutta", CROSS_SELL_RECOMMENDED_TAG],
-        "compatibleWith": ["pesce"],
-        "priority": 72,
+        "priority": 88,
     },
     {
         "id": "cs-spezie-01",
         "sku": "CS-SPEZIE-01",
         "name": "Mix di spezie per carne",
-        "price": 5.9,
+        "price": 4.5,
         "imageUrl": "",
-        "tags": ["spezie", CROSS_SELL_POPULAR_TAG],
+        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_RECOMMENDED_TAG],
         "compatibleWith": ["carne"],
-        "priority": 70,
+        "priority": 85,
+    },
+    {
+        "id": "cs-limone-01",
+        "sku": "CS-LIMONE-01",
+        "name": "Limoni freschi",
+        "price": 3.9,
+        "imageUrl": "",
+        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_POPULAR_TAG],
+        "compatibleWith": ["pesce", "ortofrutta"],
+        "priority": 82,
+    },
+    {
+        "id": "cs-salsa-pomodoro-01",
+        "sku": "CS-SALSA-POMODORO-01",
+        "name": "Passata di pomodoro",
+        "price": 2.2,
+        "imageUrl": "",
+        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_POPULAR_TAG],
+        "compatibleWith": ["pasta"],
+        "priority": 80,
+    },
+    {
+        "id": "cs-sugo-01",
+        "sku": "CS-SUGO-01",
+        "name": "Sugo pronto per pasta",
+        "price": 3.5,
+        "imageUrl": "",
+        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_RECOMMENDED_TAG],
+        "compatibleWith": ["pasta"],
+        "priority": 78,
     },
     {
         "id": "cs-formaggio-01",
         "sku": "CS-FORMAGGIO-01",
-        "name": "Formaggio grattugiato",
-        "price": 4.5,
+        "name": "Parmigiano Reggiano grattugiato",
+        "price": 6.9,
         "imageUrl": "",
-        "tags": ["formaggio", CROSS_SELL_RECOMMENDED_TAG],
+        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_POPULAR_TAG],
         "compatibleWith": ["pasta"],
+        "priority": 75,
+    },
+    {
+        "id": "cs-insalata-01",
+        "sku": "CS-INSALATA-01",
+        "name": "Insalata mista",
+        "price": 2.9,
+        "imageUrl": "",
+        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_RECOMMENDED_TAG],
+        "compatibleWith": ["pesce", "ortofrutta"],
+        "priority": 72,
+    },
+    {
+        "id": "cs-aceto-01",
+        "sku": "CS-ACETO-01",
+        "name": "Aceto balsamico di Modena",
+        "price": 5.9,
+        "imageUrl": "",
+        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_RECOMMENDED_TAG],
+        "compatibleWith": ["ortofrutta"],
+        "priority": 70,
+    },
+    {
+        "id": "cs-pane-01",
+        "sku": "CS-PANE-01",
+        "name": "Pane fresco",
+        "price": 2.5,
+        "imageUrl": "",
+        "tags": [CROSS_SELL_POPULAR_TAG],
+        "compatibleWith": ["carne", "pesce", "pasta"],
         "priority": 68,
+    },
+    {
+        "id": "cs-acqua-01",
+        "sku": "CS-ACQUA-01",
+        "name": "Acqua minerale naturale",
+        "price": 1.2,
+        "imageUrl": "",
+        "tags": [CROSS_SELL_POPULAR_TAG],
+        "compatibleWith": ["carne", "pesce", "pasta", "ortofrutta"],
+        "priority": 65,
     },
 ]
 
@@ -1717,14 +1747,24 @@ def _get_cart_category_intent(
         "pesce" in explicit_categories
         or any(keyword in tokens or keyword in normalized_text for keyword in CROSS_SELL_PESCE_KEYWORDS)
     )
+    
+    pasta_keywords = ["pasta", "spaghetti", "penne", "fusilli", "rigatoni", "fettuccine", "lasagne", "riso", "cereali"]
+    has_pasta = any(keyword in tokens or keyword in normalized_text for keyword in pasta_keywords)
+    
+    ortofrutta_keywords = ["ortofrutta", "verdura", "frutta", "verdure", "insalata", "pomodori", "zucchine", "peperoni", "melanzane", "carote", "patate", "cipolle", "mele", "pere", "banane", "arance", "limoni"]
+    has_ortofrutta = any(keyword in tokens or keyword in normalized_text for keyword in ortofrutta_keywords)
 
     categories: List[str] = []
     if has_carne:
         categories.append("carne")
     if has_pesce:
         categories.append("pesce")
+    if has_pasta:
+        categories.append("pasta")
+    if has_ortofrutta:
+        categories.append("ortofrutta")
 
-    return categories, has_carne or has_pesce
+    return categories, has_carne or has_pesce or has_pasta or has_ortofrutta
 
 
 def _get_cart_identifiers(cart_items: List[CrossSellCartItemInput]) -> tuple[set[str], set[str]]:
@@ -1873,12 +1913,10 @@ def _map_product_to_cross_sell_item(product: Dict[str, Any]) -> Dict[str, Any]:
         compatible_with.append("carne")
     if any(token in normalized_categories for token in ["pesce", "salmone", "tonno", "gamberi"]):
         compatible_with.append("pesce")
-    if "pasta" in normalized_categories:
+    if any(token in normalized_categories for token in ["pasta", "spaghetti", "penne", "fusilli", "riso", "cereali"]):
         compatible_with.append("pasta")
-    if any(token in normalized_categories for token in ["salumi", "prosciutto", "salami"]):
-        compatible_with.append("salumi")
-    if any(token in normalized_categories for token in ["formaggi", "formaggio", "latticini"]):
-        compatible_with.append("formaggi")
+    if any(token in normalized_categories for token in ["ortofrutta", "verdura", "frutta", "verdure", "insalata", "pomodori", "limoni"]):
+        compatible_with.append("ortofrutta")
 
     priority = 60
     if CROSS_SELL_ACCESSORIES_TAG in tags:
@@ -2051,6 +2089,8 @@ def _get_cross_sell_suggestions(
         if "pesce" in categories and "pesce" in item.get("compatibleWith", []):
             score += 10
         if "pasta" in categories and "pasta" in item.get("compatibleWith", []):
+            score += 10
+        if "ortofrutta" in categories and "ortofrutta" in item.get("compatibleWith", []):
             score += 10
         if CROSS_SELL_POPULAR_TAG in (item.get("tags") or []):
             score += 4

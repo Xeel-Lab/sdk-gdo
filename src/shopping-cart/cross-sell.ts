@@ -1,6 +1,6 @@
 import type { CartItem } from "../types";
 
-export type CrossSellCategory = "pc" | "tv";
+export type CrossSellCategory = "carne" | "pesce" | "pasta" | "ortofrutta";
 
 export type CrossSellItem = {
   id: string;
@@ -15,115 +15,203 @@ export type CrossSellItem = {
 
 type CartCategoryIntent = {
   categories: CrossSellCategory[];
-  hasScreenDevice: boolean;
+  hasFoodCategory: boolean;
 };
 
-const PC_KEYWORDS = [
-  "pc",
-  "laptop",
-  "notebook",
-  "desktop",
-  "computer",
-  "ultrabook",
-  "macbook",
-  "gaming",
+const CARNE_KEYWORDS = [
+  "carne",
+  "manzo",
+  "vitello",
+  "maiale",
+  "pollo",
+  "tacchino",
+  "anatra",
+  "coniglio",
+  "hamburger",
+  "polpette",
+  "salsicce",
+  "bistecche",
+  "fettine",
+  "macinato",
+  "pollame",
+  "bovina",
+  "suina",
+  "avicola",
 ];
-const TV_KEYWORDS = ["tv", "televisore", "television", "smart tv", "oled", "qled"];
 
-const CLEANING_TAG = "screen-cleaning";
+const PESCE_KEYWORDS = [
+  "pesce",
+  "salmone",
+  "tonno",
+  "branzino",
+  "orata",
+  "gamberi",
+  "gamberetti",
+  "cozze",
+  "vongole",
+  "calamari",
+  "polpo",
+  "prodotti ittici",
+  "crostacei",
+  "molluschi",
+];
+
+const PASTA_KEYWORDS = [
+  "pasta",
+  "spaghetti",
+  "penne",
+  "fusilli",
+  "rigatoni",
+  "fettuccine",
+  "lasagne",
+  "riso",
+  "cereali",
+];
+
+const ORTOFRUTTA_KEYWORDS = [
+  "ortofrutta",
+  "verdura",
+  "frutta",
+  "verdure",
+  "insalata",
+  "pomodori",
+  "zucchine",
+  "peperoni",
+  "melanzane",
+  "carote",
+  "patate",
+  "cipolle",
+  "mele",
+  "pere",
+  "banane",
+  "arance",
+  "limoni",
+];
+
+const ACCESSORIES_TAG = "accessories";
 const POPULAR_TAG = "popular";
 const RECOMMENDED_TAG = "recommended";
 
 export const crossSellFallbackCatalog: CrossSellItem[] = [
   {
-    id: "cs-clean-cloth-01",
-    sku: "CS-CLEAN-CLOTH-01",
-    name: "Panno in microfibra per schermi",
-    price: 9.9,
+    id: "cs-olio-oliva-01",
+    sku: "CS-OLIO-OLIVA-01",
+    name: "Olio extravergine di oliva",
+    price: 8.9,
     imageUrl: "",
-    tags: [CLEANING_TAG, POPULAR_TAG],
-    compatibleWith: ["pc", "tv"],
+    tags: [ACCESSORIES_TAG, POPULAR_TAG],
+    compatibleWith: ["carne", "pesce", "ortofrutta"],
     priority: 95,
   },
   {
-    id: "cs-clean-spray-01",
-    sku: "CS-CLEAN-SPRAY-01",
-    name: "Spray delicato per pulizia display",
-    price: 12.9,
+    id: "cs-sale-01",
+    sku: "CS-SALE-01",
+    name: "Sale fino marino",
+    price: 1.5,
     imageUrl: "",
-    tags: [CLEANING_TAG, RECOMMENDED_TAG],
-    compatibleWith: ["pc", "tv"],
+    tags: [ACCESSORIES_TAG, POPULAR_TAG],
+    compatibleWith: ["carne", "pesce", "ortofrutta"],
     priority: 90,
   },
   {
-    id: "cs-usb-c-01",
-    sku: "CS-USB-C-01",
-    name: "Cavo USB-C 100W intrecciato",
-    price: 19.9,
+    id: "cs-pepe-01",
+    sku: "CS-PEPE-01",
+    name: "Pepe nero macinato",
+    price: 2.9,
     imageUrl: "",
-    tags: ["usb-c", RECOMMENDED_TAG],
-    compatibleWith: ["pc"],
-    priority: 80,
+    tags: [ACCESSORIES_TAG, RECOMMENDED_TAG],
+    compatibleWith: ["carne", "pesce"],
+    priority: 88,
   },
   {
-    id: "cs-charger-01",
-    sku: "CS-CHARGER-01",
-    name: "Caricatore USB-C 65W",
-    price: 34.9,
+    id: "cs-spezie-01",
+    sku: "CS-SPEZIE-01",
+    name: "Mix di spezie per carne",
+    price: 4.5,
     imageUrl: "",
-    tags: ["charger", POPULAR_TAG],
-    compatibleWith: ["pc"],
-    priority: 78,
+    tags: [ACCESSORIES_TAG, RECOMMENDED_TAG],
+    compatibleWith: ["carne"],
+    priority: 85,
   },
   {
-    id: "cs-hdmi-01",
-    sku: "CS-HDMI-01",
-    name: "Cavo HDMI 2.1 ad alta velocità",
-    price: 24.9,
+    id: "cs-limone-01",
+    sku: "CS-LIMONE-01",
+    name: "Limoni freschi",
+    price: 3.9,
     imageUrl: "",
-    tags: ["hdmi", POPULAR_TAG],
-    compatibleWith: ["tv"],
+    tags: [ACCESSORIES_TAG, POPULAR_TAG],
+    compatibleWith: ["pesce", "ortofrutta"],
     priority: 82,
   },
   {
-    id: "cs-remote-01",
-    sku: "CS-REMOTE-01",
-    name: "Telecomando universale smart",
-    price: 29.9,
+    id: "cs-salsa-pomodoro-01",
+    sku: "CS-SALSA-POMODORO-01",
+    name: "Passata di pomodoro",
+    price: 2.2,
     imageUrl: "",
-    tags: ["remote", RECOMMENDED_TAG],
-    compatibleWith: ["tv"],
+    tags: [ACCESSORIES_TAG, POPULAR_TAG],
+    compatibleWith: ["pasta"],
+    priority: 80,
+  },
+  {
+    id: "cs-sugo-01",
+    sku: "CS-SUGO-01",
+    name: "Sugo pronto per pasta",
+    price: 3.5,
+    imageUrl: "",
+    tags: [ACCESSORIES_TAG, RECOMMENDED_TAG],
+    compatibleWith: ["pasta"],
+    priority: 78,
+  },
+  {
+    id: "cs-formaggio-01",
+    sku: "CS-FORMAGGIO-01",
+    name: "Parmigiano Reggiano grattugiato",
+    price: 6.9,
+    imageUrl: "",
+    tags: [ACCESSORIES_TAG, POPULAR_TAG],
+    compatibleWith: ["pasta"],
     priority: 75,
   },
   {
-    id: "cs-mount-01",
-    sku: "CS-MOUNT-01",
-    name: "Staffa TV slim orientabile",
-    price: 49.9,
+    id: "cs-insalata-01",
+    sku: "CS-INSALATA-01",
+    name: "Insalata mista",
+    price: 2.9,
     imageUrl: "",
-    tags: ["tv-mount", RECOMMENDED_TAG],
-    compatibleWith: ["tv"],
+    tags: [ACCESSORIES_TAG, RECOMMENDED_TAG],
+    compatibleWith: ["pesce", "ortofrutta"],
     priority: 72,
   },
   {
-    id: "cs-ups-01",
-    sku: "CS-UPS-01",
-    name: "Ciabatta con protezione UPS",
-    price: 39.9,
+    id: "cs-aceto-01",
+    sku: "CS-ACETO-01",
+    name: "Aceto balsamico di Modena",
+    price: 5.9,
     imageUrl: "",
-    tags: ["power", POPULAR_TAG],
-    compatibleWith: ["pc", "tv"],
+    tags: [ACCESSORIES_TAG, RECOMMENDED_TAG],
+    compatibleWith: ["ortofrutta"],
     priority: 70,
   },
   {
-    id: "cs-stand-01",
-    sku: "CS-STAND-01",
-    name: "Supporto da scrivania regolabile",
-    price: 44.9,
+    id: "cs-pane-01",
+    sku: "CS-PANE-01",
+    name: "Pane fresco",
+    price: 2.5,
     imageUrl: "",
-    tags: ["stand", RECOMMENDED_TAG],
-    compatibleWith: ["pc"],
+    tags: [POPULAR_TAG],
+    compatibleWith: ["carne", "pesce", "pasta"],
     priority: 68,
+  },
+  {
+    id: "cs-acqua-01",
+    sku: "CS-ACQUA-01",
+    name: "Acqua minerale naturale",
+    price: 1.2,
+    imageUrl: "",
+    tags: [POPULAR_TAG],
+    compatibleWith: ["carne", "pesce", "pasta", "ortofrutta"],
+    priority: 65,
   },
 ];
 
@@ -152,26 +240,36 @@ function getCartText(cartItems: CartItem[]) {
 
 export function getCartCategoryIntent(cartItems: CartItem[]): CartCategoryIntent {
   if (!cartItems.length) {
-    return { categories: [], hasScreenDevice: false };
+    return { categories: [], hasFoodCategory: false };
   }
 
   const normalized = normalizeText(getCartText(cartItems));
   const tokens = new Set(normalized.split(/\s+/).filter(Boolean));
 
-  const hasPc = PC_KEYWORDS.some((keyword) => tokens.has(keyword.replace(/\s+/g, ""))) ||
-    PC_KEYWORDS.some((keyword) => normalized.includes(keyword));
-  const hasTv = TV_KEYWORDS.some((keyword) => tokens.has(keyword.replace(/\s+/g, ""))) ||
-    TV_KEYWORDS.some((keyword) => normalized.includes(keyword));
+  const hasCarne = CARNE_KEYWORDS.some((keyword) => tokens.has(keyword.replace(/\s+/g, ""))) ||
+    CARNE_KEYWORDS.some((keyword) => normalized.includes(keyword));
+  const hasPesce = PESCE_KEYWORDS.some((keyword) => tokens.has(keyword.replace(/\s+/g, ""))) ||
+    PESCE_KEYWORDS.some((keyword) => normalized.includes(keyword));
+  const hasPasta = PASTA_KEYWORDS.some((keyword) => tokens.has(keyword.replace(/\s+/g, ""))) ||
+    PASTA_KEYWORDS.some((keyword) => normalized.includes(keyword));
+  const hasOrtofrutta = ORTOFRUTTA_KEYWORDS.some((keyword) => tokens.has(keyword.replace(/\s+/g, ""))) ||
+    ORTOFRUTTA_KEYWORDS.some((keyword) => normalized.includes(keyword));
 
   const categories: CrossSellCategory[] = [];
-  if (hasPc) {
-    categories.push("pc");
+  if (hasCarne) {
+    categories.push("carne");
   }
-  if (hasTv) {
-    categories.push("tv");
+  if (hasPesce) {
+    categories.push("pesce");
+  }
+  if (hasPasta) {
+    categories.push("pasta");
+  }
+  if (hasOrtofrutta) {
+    categories.push("ortofrutta");
   }
 
-  return { categories, hasScreenDevice: hasPc || hasTv };
+  return { categories, hasFoodCategory: hasCarne || hasPesce || hasPasta || hasOrtofrutta };
 }
 
 function getCartIdentifiers(cartItems: CartItem[]) {
@@ -216,7 +314,7 @@ export function getCrossSellSuggestions(
     return [];
   }
 
-  const { categories, hasScreenDevice } = getCartCategoryIntent(cartItems);
+  const { categories, hasFoodCategory } = getCartCategoryIntent(cartItems);
   const { ids, names } = getCartIdentifiers(cartItems);
   const normalizedCartText = normalizeText(getCartText(cartItems));
 
@@ -247,54 +345,76 @@ export function getCrossSellSuggestions(
     suggestions.push(item);
   };
 
-  if (hasScreenDevice) {
-    const cleaningCandidates = sortByPriority(
+  if (hasFoodCategory && categories.length > 0) {
+    const accessoryCandidates = sortByPriority(
       eligible.filter(
         (item) =>
-          item.tags?.includes(CLEANING_TAG) &&
+          item.tags?.includes(ACCESSORIES_TAG) &&
           item.compatibleWith.some((category) => categories.includes(category))
       )
     );
-    cleaningCandidates.slice(0, 2).forEach(pushSuggestion);
+    accessoryCandidates.slice(0, 2).forEach(pushSuggestion);
   }
 
-  if (categories.includes("pc")) {
-    const needsUsbC = !hasAccessoryKeyword(cartItems, ["usb-c", "usb c"]);
-    const needsCharger = !hasAccessoryKeyword(cartItems, ["charger", "caricatore"]);
-    const pcCandidates = eligible.filter((item) => item.compatibleWith.includes("pc"));
+  if (categories.includes("carne")) {
+    const needsOlio = !hasAccessoryKeyword(cartItems, ["olio", "condimento"]);
+    const needsSpezie = !hasAccessoryKeyword(cartItems, ["spezie", "sale", "pepe"]);
+    const carneCandidates = eligible.filter((item) => item.compatibleWith.includes("carne"));
 
-    if (needsUsbC) {
-      sortByPriority(pcCandidates.filter((item) => item.tags?.includes("usb-c")))
+    if (needsOlio) {
+      sortByPriority(carneCandidates.filter((item) =>
+        normalizeText(item.name).includes("olio") || item.tags?.includes(ACCESSORIES_TAG)
+      ))
         .slice(0, 1)
         .forEach(pushSuggestion);
     }
 
-    if (needsCharger) {
-      sortByPriority(pcCandidates.filter((item) => item.tags?.includes("charger")))
+    if (needsSpezie) {
+      sortByPriority(carneCandidates.filter((item) =>
+        normalizeText(item.name).includes("spezie") ||
+        normalizeText(item.name).includes("pepe") ||
+        normalizeText(item.name).includes("sale")
+      ))
         .slice(0, 1)
         .forEach(pushSuggestion);
     }
   }
 
-  if (categories.includes("tv")) {
-    const needsHdmi = !normalizedCartText.includes("hdmi");
-    const tvCandidates = eligible.filter((item) => item.compatibleWith.includes("tv"));
+  if (categories.includes("pesce")) {
+    const needsLimone = !normalizedCartText.includes("limone");
+    const needsOlio = !hasAccessoryKeyword(cartItems, ["olio", "condimento"]);
+    const pesceCandidates = eligible.filter((item) => item.compatibleWith.includes("pesce"));
 
-    if (needsHdmi) {
-      sortByPriority(tvCandidates.filter((item) => item.tags?.includes("hdmi")))
+    if (needsLimone) {
+      sortByPriority(pesceCandidates.filter((item) =>
+        normalizeText(item.name).includes("limone") || item.compatibleWith.includes("ortofrutta")
+      ))
         .slice(0, 1)
         .forEach(pushSuggestion);
     }
 
-    sortByPriority(tvCandidates.filter((item) => item.tags?.includes("remote")))
-      .slice(0, 1)
-      .forEach(pushSuggestion);
+    if (needsOlio) {
+      sortByPriority(pesceCandidates.filter((item) =>
+        normalizeText(item.name).includes("olio") || item.tags?.includes(ACCESSORIES_TAG)
+      ))
+        .slice(0, 1)
+        .forEach(pushSuggestion);
+    }
+  }
 
-    sortByPriority(
-      tvCandidates.filter((item) => item.tags?.some((tag) => tag === "tv-mount" || tag === "stand"))
-    )
-      .slice(0, 1)
-      .forEach(pushSuggestion);
+  if (categories.includes("pasta")) {
+    const needsSalsa = !hasAccessoryKeyword(cartItems, ["salsa", "sugo", "pomodoro"]);
+    const pastaCandidates = eligible.filter((item) => item.compatibleWith.includes("pasta"));
+
+    if (needsSalsa) {
+      sortByPriority(pastaCandidates.filter((item) =>
+        normalizeText(item.name).includes("salsa") ||
+        normalizeText(item.name).includes("sugo") ||
+        normalizeText(item.name).includes("pomodoro")
+      ))
+        .slice(0, 1)
+        .forEach(pushSuggestion);
+    }
   }
 
   const categorySet = new Set(categories);
@@ -310,13 +430,19 @@ export function getCrossSellSuggestions(
     })
     .map((item) => {
       let score = item.priority;
-      if (hasScreenDevice && item.tags?.includes(CLEANING_TAG)) {
+      if (hasFoodCategory && item.tags?.includes(ACCESSORIES_TAG)) {
         score += 15;
       }
-      if (categories.includes("pc") && item.compatibleWith.includes("pc")) {
+      if (categories.includes("carne") && item.compatibleWith.includes("carne")) {
         score += 10;
       }
-      if (categories.includes("tv") && item.compatibleWith.includes("tv")) {
+      if (categories.includes("pesce") && item.compatibleWith.includes("pesce")) {
+        score += 10;
+      }
+      if (categories.includes("pasta") && item.compatibleWith.includes("pasta")) {
+        score += 10;
+      }
+      if (categories.includes("ortofrutta") && item.compatibleWith.includes("ortofrutta")) {
         score += 10;
       }
       if (item.tags?.includes(POPULAR_TAG)) {
