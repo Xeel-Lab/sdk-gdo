@@ -320,22 +320,15 @@ def filter_products_by_category(products: List[Dict[str, Any]], category: str) -
     products_without_categories = 0
     
     for product in products:
-        # Estrai tutte le categorie/tag del prodotto (da primaryCategories o categories)
+        # Estrai tutte le categorie/tag del prodotto (da categories)
         product_categories_raw = []
         
-        # Prova primaryCategories (campo principale)
-        if product.get("primaryCategories"):
-            if isinstance(product["primaryCategories"], list):
-                product_categories_raw.extend([str(cat).strip() for cat in product["primaryCategories"]])
-            elif isinstance(product["primaryCategories"], str):
-                product_categories_raw.extend([cat.strip() for cat in product["primaryCategories"].split(",")])
-        
-        # Prova categories (fallback)
+        # Usa categories (stringa separata da virgole)
         if product.get("categories"):
             if isinstance(product["categories"], list):
-                product_categories_raw.extend([str(cat).strip() for cat in product["categories"]])
+                product_categories_raw.extend([str(cat).strip() for cat in product["categories"] if cat])
             elif isinstance(product["categories"], str):
-                product_categories_raw.extend([cat.strip() for cat in product["categories"].split(",")])
+                product_categories_raw.extend([cat.strip() for cat in product["categories"].split(",") if cat.strip()])
         
         # Normalizza le categorie del prodotto (lowercase)
         product_categories = [cat.lower().strip() for cat in product_categories_raw if cat]
@@ -380,7 +373,7 @@ def filter_products_by_category(products: List[Dict[str, Any]], category: str) -
     
     # Log risultati
     if filtered_products:
-        sample_names = [p.get("name", "Unknown")[:30] for p in filtered_products[:5]]
+        sample_names = [p.get("description", "Unknown")[:30] for p in filtered_products[:5]]
         logger.info(
             f"✅ Filter matched {len(filtered_products)}/{len(products)} products for category '{category}'. "
             f"Sample products: {sample_names}. "
@@ -457,20 +450,21 @@ def rank_products_by_criteria(
         return None
     
     def get_price(product: Dict[str, Any]) -> float:
-        """Estrae il prezzo dal prodotto."""
-        price_num = 0
-        if "prices" in product:
-            prices_value = product.get("prices")
-            if isinstance(prices_value, (int, float)):
-                price_num = prices_value
-            elif isinstance(prices_value, str):
-                try:
-                    price_num = float(prices_value)
-                except ValueError:
-                    price_num = 0
-            elif isinstance(prices_value, dict):
-                price_num = prices_value.get("amountMax", 0) or prices_value.get("amountMin", 0)
-        return float(price_num) if price_num else 0.0
+        """Estrae il prezzo dal prodotto. Il prezzo è una stringa che può contenere /kg."""
+        price_str = product.get("price", "")
+        if not isinstance(price_str, str):
+            price_str = str(price_str) if price_str else ""
+        
+        # Rimuovi /kg e altri suffissi, poi estrai il numero
+        price_clean = price_str.replace("/kg", "").replace("€", "").replace(",", ".").strip()
+        try:
+            # Prova a estrarre il primo numero dalla stringa
+            match = re.search(r'(\d+\.?\d*)', price_clean)
+            if match:
+                return float(match.group(1))
+        except (ValueError, AttributeError):
+            pass
+        return 0.0
     
     def calculate_relevance_score(product: Dict[str, Any]) -> tuple:
         """
@@ -483,7 +477,7 @@ def rank_products_by_criteria(
         # 1. Corrispondenza esatta per dimensione (priorità massima)
         target_size = criteria.get("size_inches")
         if target_size:
-            product_size = extract_size_from_name(product.get("name", ""))
+            product_size = extract_size_from_name(product.get("description", ""))
             if product_size:
                 size_diff = abs(product_size - target_size)
                 if size_diff == 0:
@@ -530,16 +524,14 @@ def rank_products_by_criteria(
         # 4. Corrispondenza per parole chiave
         keywords = criteria.get("keywords", [])
         if keywords:
-            name_lower = (product.get("name", "") or "").lower()
-            desc_lower = (product.get("descrizione_prodotto", "") or "").lower()
-            text = f"{name_lower} {desc_lower}"
-            matched_keywords = sum(1 for kw in keywords if kw.lower() in text)
+            desc_lower = (product.get("description", "") or "").lower()
+            matched_keywords = sum(1 for kw in keywords if kw.lower() in desc_lower)
             if matched_keywords > 0:
                 # Bonus per corrispondenza keyword (riduce lo score)
                 score = max(0, score - (matched_keywords * 5))
         
         # Restituisci tupla per ordinamento stabile (score, prezzo, nome)
-        return (score, -get_price(product), product.get("name", ""))
+        return (score, -get_price(product), product.get("description", ""))
     
     # Ordina i prodotti per rilevanza
     sorted_products = sorted(products, key=calculate_relevance_score)
@@ -563,7 +555,8 @@ async def get_products_from_motherduck(category: str = None):
         with get_motherduck_connection() as con:
             # Query per recuperare tutti i prodotti dalla tabella prodotti_xeel_shop
             # La tabella è nello schema 'main' (impostato in get_motherduck_connection)
-            query = "SELECT * FROM prodotti_xeel_shop"
+            # Colonne: ID, company, description, price, categories
+            query = "SELECT ID, company, description, price, categories FROM prodotti_xeel_shop"
             logger.debug(f"Executing query: {query}")
             products_df = con.execute(query).fetchdf()
             
@@ -618,11 +611,10 @@ def transform_products_to_places(
     Trasforma prodotti dal database MotherDuck in formato 'places' per i widget UI.
     
     I widget carousel/map/list/albums si aspettano una struttura 'places' con:
-    - id, name, coords (lat, lon), description, city, rating, price (stringa), thumbnail, stock
+    - id, name, coords (lat, lon), description, city, price (stringa), thumbnail
     
     I prodotti dal database prodotti_xeel_shop hanno:
-    - id, name, prices, descrizione_prodotto, imageURLs, 
-      voto_prodotto_1_5, categories, primaryCategories, stock
+    - ID, company, description, price, categories
     
     Questa funzione mappa i campi dal database e genera valori default per campi mancanti 
     (coords, city - generati automaticamente).
@@ -631,13 +623,11 @@ def transform_products_to_places(
     per mostrare prima le corrispondenze esatte e poi i prodotti simili.
     
     Mapping colonne DB -> places:
-    - id -> id
-    - name -> name  
-    - prices -> price (convertito in $/$$/$$$)
-    - descrizione_prodotto -> description
-    - imageURLs -> thumbnail
-    - voto_prodotto_1_5 -> rating (con fallback a 4.5)
-    - stock -> stock (numero prodotti disponibili)
+    - ID -> id
+    - description -> name
+    - price -> price (già stringa, può contenere /kg)
+    - categories -> (usato per filtri)
+    - thumbnail -> placeholder vuoto
     - coords, city -> generati automaticamente (default San Francisco)
     
     Args:
@@ -688,7 +678,7 @@ def transform_products_to_places(
     
     for idx, product in enumerate(products):
         # Ottieni l'ID del prodotto - assicurati che sia univoco
-        product_id = product.get("id")
+        product_id = product.get("ID") or product.get("id")
         if not product_id:
             # Se non c'è ID, genera uno basato sull'indice
             product_id = f"product-{idx}"
@@ -711,28 +701,13 @@ def transform_products_to_places(
         if product_id != original_id:
             logger.warning(
                 f"Duplicate product ID detected: '{original_id}'. "
-                f"Using unique ID: '{product_id}' for product '{product.get('name', 'Unknown')}'"
+                f"Using unique ID: '{product_id}' for product '{product.get('description', 'Unknown')}'"
             )
         
-        # Ottieni il prezzo dalla colonna prices
-        # Può essere numero, stringa numerica o dict (amountMax/amountMin)
-        price_num = 0
-        if "prices" in product:
-            prices_value = product.get("prices")
-            if isinstance(prices_value, (int, float)):
-                price_num = prices_value
-            elif isinstance(prices_value, str):
-                try:
-                    price_num = float(prices_value)
-                except ValueError:
-                    price_num = 0
-            elif isinstance(prices_value, dict):
-                price_num = prices_value.get("amountMax", 0) or prices_value.get("amountMin", 0)
-        # Converti prezzo in formato stringa in euro (es. 34,59€)
-        if isinstance(price_num, (int, float)) and price_num > 0:
-            price_str = f"{price_num:.2f}".replace(".", ",") + "€"
-        else:
-            price_str = ""
+        # Ottieni il prezzo dalla colonna price (già stringa, può contenere /kg)
+        price_str = product.get("price", "")
+        if not isinstance(price_str, str):
+            price_str = str(price_str) if price_str else ""
         
         # Genera coordinate usando pattern circolare sulle coordinate default
         coords = default_coords[idx % len(default_coords)]
@@ -740,63 +715,17 @@ def transform_products_to_places(
         # Genera città usando pattern circolare
         city = default_cities[idx % len(default_cities)]
         
-        # Rating dal database (voto_prodotto_1_5) o default
-        rating = product.get("voto_prodotto_1_5", 4.5)
-        if not isinstance(rating, (int, float)) or rating <= 0:
-            rating = 4.5  # Default se non valido
-        
-        # Estrai pro e contro dal database
-        # Il campo 'pro' può essere una stringa separata da virgole o una lista
-        pro_raw = product.get("pro", "")
-        if isinstance(pro_raw, str):
-            pros = [p.strip() for p in pro_raw.split(",") if p.strip()] if pro_raw else []
-        elif isinstance(pro_raw, list):
-            pros = [str(p).strip() for p in pro_raw if str(p).strip()]
-        else:
-            pros = []
-        
-        # Il campo 'contro' può essere una stringa separata da virgole o una lista
-        contro_raw = product.get("contro", "")
-        if isinstance(contro_raw, str):
-            contros = [c.strip() for c in contro_raw.split(",") if c.strip()] if contro_raw else []
-        elif isinstance(contro_raw, list):
-            contros = [str(c).strip() for c in contro_raw if str(c).strip()]
-        else:
-            contros = []
-        
-        # Ottieni lo stock dal database (colonna 'stock')
-        stock = product.get("stock", 0)
-        if isinstance(stock, (int, float)):
-            stock = int(stock)
-        elif isinstance(stock, str):
-            try:
-                stock = int(float(stock))
-            except (ValueError, TypeError):
-                stock = 0
-        else:
-            stock = 0
-        
         # Mappa i campi usando i nomi colonne corretti del database
-        # IMPORTANTE: Usa product_id (garantito univoco) invece di product.get("id")
+        # IMPORTANTE: Usa product_id (garantito univoco) invece di product.get("ID")
         place = {
             "id": product_id,  # Usa l'ID univoco garantito
-            "name": product.get("name", "Unknown Product"),
+            "name": product.get("description", "Unknown Product"),  # Usa description come name
             "coords": coords,
-            "description": product.get("descrizione_prodotto", ""),  # Usa descrizione_prodotto dal DB
+            "description": product.get("description", ""),  # Usa description dal DB
             "city": city,
-            "rating": rating,
-            "price": price_str,
-            "thumbnail": product.get("imageURLs", ""),  # Usa solo imageURLs (non esiste "image" nel DB)
-            "pros": pros,  # Punti di forza del prodotto
-            "cons": contros,  # Punti deboli del prodotto
-            "stock": stock,  # Numero di prodotti disponibili in magazzino
+            "price": price_str,  # Prezzo già stringa, può contenere /kg
+            "thumbnail": "",  # Placeholder vuoto per immagini
         }
-        
-        # Assicurati che thumbnail sia una stringa (se imageURLs è una lista, prendi il primo)
-        if isinstance(place["thumbnail"], list):
-            place["thumbnail"] = place["thumbnail"][0] if place["thumbnail"] else ""
-        elif not place["thumbnail"]:
-            place["thumbnail"] = ""
         
         places.append(place)
     
@@ -815,11 +744,10 @@ def transform_products_to_albums(
       - id, title, cover
       - photos array con id, title, url
     
-    Strategia: Raggruppa prodotti per categoria (primaryCategories o categories).
+    Strategia: Raggruppa prodotti per categoria (categories).
     I prodotti dal database prodotti_xeel_shop hanno:
-    - primaryCategories (colonna preferita) o categories (fallback)
-    - imageURLs per le immagini
-    - name per il titolo
+    - categories (stringa separata da virgole)
+    - description per il titolo
     
     I prodotti vengono ordinati in base ai criteri specificati prima di essere raggruppati,
     in modo che all'interno di ogni album i prodotti più rilevanti vengano mostrati per primi.
@@ -843,18 +771,13 @@ def transform_products_to_albums(
     albums_map = {}
     
     for product in products:
-        # Usa primaryCategories o categories dal database (non esiste "tags")
+        # Usa categories dal database (stringa separata da virgole)
         categories = []
-        if product.get("primaryCategories"):
-            if isinstance(product["primaryCategories"], list):
-                categories = product["primaryCategories"]
-            elif isinstance(product["primaryCategories"], str):
-                categories = [cat.strip() for cat in product["primaryCategories"].split(",")]
-        elif product.get("categories"):
+        if product.get("categories"):
             if isinstance(product["categories"], list):
-                categories = product["categories"]
+                categories = [str(cat).strip() for cat in product["categories"] if cat]
             elif isinstance(product["categories"], str):
-                categories = [cat.strip() for cat in product["categories"].split(",")]
+                categories = [cat.strip() for cat in product["categories"].split(",") if cat.strip()]
         
         # Usa la prima categoria come categoria principale, o "General" se non ci sono
         category = categories[0] if categories else "General GDO"
@@ -866,24 +789,17 @@ def transform_products_to_albums(
             albums_map[album_id] = {
                 "id": album_id,
                 "title": category,
-                "cover": product.get("imageURLs", "") or "",  # Usa solo imageURLs (non esiste "image" nel DB)
+                "cover": "",  # Placeholder vuoto per immagini
                 "photos": [],
             }
-            
-            # Assicurati che cover sia una stringa
-            if isinstance(albums_map[album_id]["cover"], list):
-                albums_map[album_id]["cover"] = albums_map[album_id]["cover"][0] if albums_map[album_id]["cover"] else ""
         
         # Aggiungi prodotto come photo nell'album
+        product_id = product.get("ID") or product.get("id")
         photo = {
-            "id": product.get("id", f"photo-{len(albums_map[album_id]['photos'])}"),
-            "title": product.get("name", "Product"),
-            "url": product.get("imageURLs", "") or "",  # Usa solo imageURLs (non esiste "image" nel DB)
+            "id": str(product_id) if product_id else f"photo-{len(albums_map[album_id]['photos'])}",
+            "title": product.get("description", "Product"),
+            "url": "",  # Placeholder vuoto per immagini
         }
-        
-        # Assicurati che url sia una stringa
-        if isinstance(photo["url"], list):
-            photo["url"] = photo["url"][0] if photo["url"] else ""
         
         albums_map[album_id]["photos"].append(photo)
     
@@ -892,21 +808,17 @@ def transform_products_to_albums(
         albums_map["all-products"] = {
             "id": "all-products",
             "title": "All Products",
-            "cover": products[0].get("image") or products[0].get("imageURLs", "") if products else "",
+            "cover": "",
             "photos": [],
         }
         
-        if isinstance(albums_map["all-products"]["cover"], list):
-            albums_map["all-products"]["cover"] = albums_map["all-products"]["cover"][0] if albums_map["all-products"]["cover"] else ""
-        
         for product in products:
+            product_id = product.get("ID") or product.get("id")
             photo = {
-                "id": product.get("id", f"photo-{len(albums_map['all-products']['photos'])}"),
-                "title": product.get("name", "Product"),
-                "url": product.get("image") or product.get("imageURLs", "") or "",
+                "id": str(product_id) if product_id else f"photo-{len(albums_map['all-products']['photos'])}",
+                "title": product.get("description", "Product"),
+                "url": "",
             }
-            if isinstance(photo["url"], list):
-                photo["url"] = photo["url"][0] if photo["url"] else ""
             albums_map["all-products"]["photos"].append(photo)
     
     # Converti dict in lista e limita a massimo 4 album
@@ -1848,12 +1760,7 @@ def _dedupe_by_sku(items: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 def _extract_product_categories(product: Dict[str, Any]) -> List[str]:
     categories_raw: List[str] = []
-    primary = product.get("primaryCategories")
-    if isinstance(primary, list):
-        categories_raw.extend([str(cat).strip() for cat in primary if cat])
-    elif isinstance(primary, str):
-        categories_raw.extend([cat.strip() for cat in primary.split(",") if cat.strip()])
-
+    
     categories = product.get("categories")
     if isinstance(categories, list):
         categories_raw.extend([str(cat).strip() for cat in categories if cat])
@@ -1869,29 +1776,25 @@ def _product_has_category_keywords(product: Dict[str, Any], keywords: List[str])
 
 
 def _extract_price_from_product(product: Dict[str, Any]) -> float:
-    prices_value = product.get("prices")
-    if isinstance(prices_value, (int, float)):
-        return float(prices_value)
-    if isinstance(prices_value, str):
-        try:
-            return float(prices_value)
-        except ValueError:
-            return 0.0
-    if isinstance(prices_value, dict):
-        candidate = prices_value.get("amountMax", 0) or prices_value.get("amountMin", 0)
-        try:
-            return float(candidate)
-        except (ValueError, TypeError):
-            return 0.0
+    """Estrae il prezzo dal prodotto. Il prezzo è una stringa che può contenere /kg."""
+    price_str = product.get("price", "")
+    if not isinstance(price_str, str):
+        price_str = str(price_str) if price_str else ""
+    
+    # Rimuovi /kg e altri suffissi, poi estrai il numero
+    price_clean = price_str.replace("/kg", "").replace("€", "").replace(",", ".").strip()
+    try:
+        # Prova a estrarre il primo numero dalla stringa
+        match = re.search(r'(\d+\.?\d*)', price_clean)
+        if match:
+            return float(match.group(1))
+    except (ValueError, AttributeError):
+        pass
     return 0.0
 
 
 def _extract_image_url(product: Dict[str, Any]) -> str:
-    images = product.get("imageURLs")
-    if isinstance(images, list) and images:
-        return str(images[0])
-    if isinstance(images, str):
-        return images
+    """Restituisce un placeholder vuoto per le immagini."""
     return ""
 
 
@@ -1904,12 +1807,12 @@ def _resolve_cart_products(
 
     lookup: Dict[str, Dict[str, Any]] = {}
     for product in products:
-        product_id = product.get("id")
-        product_name = product.get("name")
-        if isinstance(product_id, str) and product_id:
-            lookup[_normalize_text(product_id)] = product
-        if isinstance(product_name, str) and product_name:
-            lookup[_normalize_text(product_name)] = product
+        product_id = product.get("ID") or product.get("id")
+        product_description = product.get("description")
+        if product_id:
+            lookup[_normalize_text(str(product_id))] = product
+        if isinstance(product_description, str) and product_description:
+            lookup[_normalize_text(product_description)] = product
 
     resolved = []
     for item in cart_items:
@@ -1949,9 +1852,9 @@ def _detect_cart_intent_from_products(
 
 
 def _map_product_to_cross_sell_item(product: Dict[str, Any]) -> Dict[str, Any]:
-    product_id = product.get("id")
+    product_id = product.get("ID") or product.get("id")
     sku = str(product_id) if product_id is not None else ""
-    name = product.get("name", "")
+    name = product.get("description", "")
     price = _extract_price_from_product(product)
     primary_categories = _extract_product_categories(product)
     normalized_categories = _normalize_text(" ".join(primary_categories))
