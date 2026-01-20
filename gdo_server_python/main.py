@@ -79,7 +79,6 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from mcp.server.fastmcp import FastMCP
 from starlette.staticfiles import StaticFiles
 from starlette.routing import Mount, Route
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import HTMLResponse as StarletteHTMLResponse, Response
 from starlette.types import ASGIApp, Scope, Receive, Send
 from mcp.server.transport_security import TransportSecuritySettings
@@ -1025,113 +1024,135 @@ class SSEBypassMiddleware:
         await self.app(scope, receive, send)
 
 
-class CORSMiddleware(BaseHTTPMiddleware):
+class CORSMiddleware:
     """
-    Middleware per aggiungere CORS (Cross-Origin Resource Sharing) headers alle risposte HTTP.
+    Middleware ASGI nativo per aggiungere CORS (Cross-Origin Resource Sharing) headers alle risposte HTTP.
     
     Permette al browser di caricare risorse (JS, CSS) da origini diverse, necessario
     quando il widget viene caricato da ChatGPT che ha un'origine diversa dal server.
     """
     
-    async def dispatch(self, request: Request, call_next):
-        # Gestisci richieste OPTIONS (preflight) prima di chiamare il prossimo middleware
-        if request.method == "OPTIONS":
-            origin = request.headers.get("origin")
+    def __init__(self, app: ASGIApp):
+        self.app = app
+    
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        
+        path = scope.get("path", "")
+        
+        # Per risposte SSE, passa direttamente senza modificare headers
+        if path.startswith("/mcp") or path == "/sse" or path.startswith("/messages"):
+            await self.app(scope, receive, send)
+            return
+        
+        # Gestisci richieste OPTIONS (preflight)
+        if scope["method"] == "OPTIONS":
+            origin = None
+            for header_name, header_value in scope.get("headers", []):
+                if header_name == b"origin":
+                    origin = header_value.decode("utf-8")
+                    break
+            
             allowed_origins = _split_env_list(os.getenv("MCP_ALLOWED_ORIGINS"))
             
-            response = Response(status_code=200)
-            
-            # Imposta Access-Control-Allow-Origin
-            if not allowed_origins:
-                # Permetti tutte le origini (utile per sviluppo e per ChatGPT)
-                response.headers["Access-Control-Allow-Origin"] = "*"
-            elif origin and origin in allowed_origins:
-                response.headers["Access-Control-Allow-Origin"] = origin
+            cors_origin = "*"
+            if allowed_origins:
+                if origin and origin in allowed_origins:
+                    cors_origin = origin
+                elif origin:
+                    cors_origin = origin
             elif origin:
-                # Se l'origine non è nella lista ma è presente, la permettiamo comunque
-                # (utile per ChatGPT che può avere origini dinamiche)
-                response.headers["Access-Control-Allow-Origin"] = origin
+                cors_origin = origin
             
-            # Header necessari per CORS
-            response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-            response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
-            response.headers["Access-Control-Max-Age"] = "86400"  # 24 ore
+            headers = [
+                (b"access-control-allow-origin", cors_origin.encode("utf-8")),
+                (b"access-control-allow-methods", b"GET, POST, OPTIONS"),
+                (b"access-control-allow-headers", b"Content-Type, Authorization"),
+                (b"access-control-max-age", b"86400"),
+            ]
             
-            return response
+            await send({
+                "type": "http.response.start",
+                "status": 200,
+                "headers": headers,
+            })
+            await send({
+                "type": "http.response.body",
+                "body": b"",
+            })
+            return
         
-        # Per risposte SSE (/mcp endpoint), passa direttamente senza modificare headers
-        # Le risposte SSE sono gestite direttamente da sse-starlette e non seguono il normale flusso HTTP
-        if request.url.path.startswith("/mcp") or request.url.path == "/sse":
-            return await call_next(request)
+        # Per tutte le altre richieste, intercetta http.response.start e aggiungi header CORS
+        origin = None
+        for header_name, header_value in scope.get("headers", []):
+            if header_name == b"origin":
+                origin = header_value.decode("utf-8")
+                break
         
-        # Per tutte le altre richieste, processa normalmente e aggiungi header CORS
-        response = await call_next(request)
-        
-        # Ottieni l'origine della richiesta
-        origin = request.headers.get("origin")
-        
-        # Lista di origini permesse (può essere configurata via env)
         allowed_origins = _split_env_list(os.getenv("MCP_ALLOWED_ORIGINS"))
         
-        # Imposta Access-Control-Allow-Origin
-        if not allowed_origins:
-            # Permetti tutte le origini (utile per sviluppo e per ChatGPT)
-            response.headers["Access-Control-Allow-Origin"] = "*"
-        elif origin and origin in allowed_origins:
-            # Permetti solo origini specificate
-            response.headers["Access-Control-Allow-Origin"] = origin
+        cors_origin = "*"
+        if allowed_origins:
+            if origin and origin in allowed_origins:
+                cors_origin = origin
+            elif origin:
+                cors_origin = origin
         elif origin:
-            # Se l'origine non è nella lista ma è presente, la permettiamo comunque
-            # (utile per ChatGPT che può avere origini dinamiche)
-            response.headers["Access-Control-Allow-Origin"] = origin
+            cors_origin = origin
         
-        # Header necessari per CORS
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
-        response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                headers.append((b"access-control-allow-origin", cors_origin.encode("utf-8")))
+                headers.append((b"access-control-allow-methods", b"GET, POST, OPTIONS"))
+                headers.append((b"access-control-allow-headers", b"Content-Type, Authorization"))
+                message["headers"] = headers
+            await send(message)
         
-        return response
+        await self.app(scope, receive, send_wrapper)
 
 
-class CSPMiddleware(BaseHTTPMiddleware):
+class CSPMiddleware:
     """
-    Middleware per aggiungere Content Security Policy (CSP) headers alle risposte HTTP.
+    Middleware ASGI nativo per aggiungere Content Security Policy (CSP) headers alle risposte HTTP.
     
     CSP previene attacchi XSS limitando le risorse che possono essere caricate ed eseguite.
     """
     
-    async def dispatch(self, request: Request, call_next):
-        # Per risposte SSE/streaming, passa direttamente senza modificare headers
-        # Le risposte SSE sono gestite direttamente da sse-starlette e non seguono il normale flusso HTTP
-        if (
-            request.url.path.startswith("/mcp")
-            or request.url.path == "/sse"
-            or request.url.path.startswith("/messages")
-        ):
-            return await call_next(request)
+    def __init__(self, app: ASGIApp):
+        self.app = app
+    
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
         
-        response = await call_next(request)
+        path = scope.get("path", "")
+        
+        # Per risposte SSE/streaming, passa direttamente senza modificare headers
+        if path.startswith("/mcp") or path == "/sse" or path.startswith("/messages"):
+            await self.app(scope, receive, send)
+            return
         
         # Costruisci la policy CSP come stringa singola per evitare problemi con h11
-        # h11 (usato da uvicorn) è molto rigoroso nella validazione degli header HTTP
         csp_policy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://chat.openai.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
         
-        # Aggiungi header CSP alla risposta
-        # Nota: se h11 continua a rifiutare l'header, potrebbe essere necessario
-        # rimuovere temporaneamente il middleware CSP o usare un approccio alternativo
-        try:
-            response.headers["Content-Security-Policy"] = csp_policy
-        except Exception as e:
-            # Se h11 rifiuta l'header, loggiamo l'errore ma non blocchiamo la risposta
-            # Questo permette al server di funzionare anche senza CSP
-            logger.warning(f"Failed to set CSP header: {e}")
+        # Intercetta http.response.start e aggiungi header CSP
+        async def send_wrapper(message):
+            if message["type"] == "http.response.start":
+                headers = list(message.get("headers", []))
+                try:
+                    headers.append((b"content-security-policy", csp_policy.encode("utf-8")))
+                    headers.append((b"x-content-type-options", b"nosniff"))
+                    headers.append((b"x-frame-options", b"DENY"))
+                except Exception as e:
+                    logger.warning(f"Failed to set CSP header: {e}")
+                message["headers"] = headers
+            await send(message)
         
-        # Aggiungi anche header X-Content-Type-Options per sicurezza aggiuntiva
-        response.headers["X-Content-Type-Options"] = "nosniff"
-        
-        # Aggiungi header X-Frame-Options per prevenire clickjacking (redundante con CSP frame-ancestors ma utile per browser vecchi)
-        response.headers["X-Frame-Options"] = "DENY"
-        
-        return response
+        await self.app(scope, receive, send_wrapper)
 
 
 async def proxy_image_handler(request: Request):
@@ -3761,11 +3782,12 @@ app = mcp.sse_app()
 # Aggiungi middleware CORS all'app (deve essere prima di CSP)
 # Il middleware CORS permette il caricamento di risorse (JS, CSS) da origini diverse
 # necessario quando il widget viene caricato da ChatGPT che ha un'origine diversa
-app.add_middleware(CORSMiddleware)
+# Usa wrapping diretto invece di add_middleware per middleware ASGI nativi
+app = CORSMiddleware(app)
 
 # Aggiungi middleware CSP all'app
 # Il middleware aggiunge Content Security Policy headers per prevenire attacchi XSS
-app.add_middleware(CSPMiddleware)
+app = CSPMiddleware(app)
 
 # Root route handler - provides information about available endpoints
 async def root_handler(request):

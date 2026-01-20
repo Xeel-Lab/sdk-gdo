@@ -207,7 +207,7 @@ In caso di conflitto:
 - **product-list** → accesso al database MotherDuck (JSON strutturato)
 
 ### Widget e acquisto
-- gdo-carousel → max 6 prodotti, **una sola categoria**
+- gdo-carousel → max 10 prodotti
 - gdo-list → lista compatta
 - gdo-albums → galleria per categoria/tema
 - gdo-shop → negozio completo (max 24 prodotti)
@@ -305,6 +305,7 @@ Post-checkout:
 - acquisto (map o shop)
 
 ### Ricette e Preparazione Piatti
+- ricerca per la ricetta richiesta dall'utente
 - identifica tutti gli ingredienti necessari dalla ricetta
 - per ogni ingrediente: `product-list` con `keywords` sul campo `description`
 - raccogli SOLO i prodotti trovati nel database
@@ -316,6 +317,7 @@ Post-checkout:
 - identifica prodotto
 - guida per conservazione e utilizzo
 - prodotti complementari solo da DB (widget)
+- mostra prodotti complementari che potrebbero essere utili
 
 ---
 
