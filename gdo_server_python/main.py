@@ -178,8 +178,8 @@ def get_motherduck_connection():
         )
     
     # Connessione a MotherDuck usando il formato md:database_name?motherduck_token=TOKEN
-    # Il database è 'app_gpt_elettronica'
-    connection_string = f"md:app_gpt_elettronica?motherduck_token={md_token}"
+    # Il database è 'app_gpt_gdo'
+    connection_string = f"md:app_gpt_gdo?motherduck_token={md_token}"
     con = duckdb.connect(connection_string)
     
     # Imposta lo schema di ricerca su 'main' per semplificare le query
@@ -190,20 +190,79 @@ def get_motherduck_connection():
 
 # Mapping delle categorie principali ai tag associati (stesso mapping del frontend)
 CATEGORY_MAPPING = {
-    "Video & TV": [
-        "tv", "televisions", "tv accessories", "tv mounts", "projectors",
-        "video projectors", "dvd players", "blu-ray players", "blu-ray",
-        "video", "home theater"
+    "Ortofrutta": [
+        "ortofrutta", "verdura", "frutta", "verdure fresche", "frutta fresca",
+        "frutta secca", "frutta disidratata", "insalata", "pomodori", "zucchine",
+        "peperoni", "melanzane", "carote", "patate", "cipolle", "aglio",
+        "mele", "pere", "banane", "arance", "limoni", "uva", "fragole"
     ],
-    "Informatica": [
-        "computers", "desktop computers", "monitors", "tablets",
-        "printers", "scanners", "computer accessories", "pc components",
-        "input devices", "keyboards", "mice", "laptops"
+    "Carne e pollame": [
+        "carne", "pollame", "carne bovina", "carne suina", "carne avicola",
+        "carne ovina", "preparati di carne", "manzo", "vitello", "maiale",
+        "pollo", "tacchino", "anatra", "coniglio", "hamburger", "polpette",
+        "salsicce", "bistecche", "fettine", "macinato"
     ],
-    "Audio": [
-        "audio", "speakers", "wireless speakers", "bluetooth speakers",
-        "headphones", "home audio", "home theater", "home theater systems",
-        "microphones", "amplifiers", "stereos", "portable audio"
+    "Pesce e prodotti ittici": [
+        "pesce", "prodotti ittici", "pesce fresco", "pesce surgelato",
+        "crostacei", "molluschi", "preparati ittici", "salmone", "tonno",
+        "branzino", "orata", "gamberi", "gamberetti", "cozze", "vongole",
+        "calamari", "polpo", "surgelati pesce"
+    ],
+    "Salumi e affettati": [
+        "salumi", "affettati", "prosciutto crudo", "prosciutto cotto",
+        "salami", "bresaola", "mortadella", "speck", "pancetta",
+        "coppa", "capocollo", "salame", "wurstel"
+    ],
+    "Latticini e uova": [
+        "latticini", "uova", "latte", "yogurt", "fermentati", "formaggi freschi",
+        "formaggi stagionati", "burro", "panna", "ricotta", "mozzarella",
+        "parmigiano", "grana", "pecorino", "gorgonzola", "formaggio"
+    ],
+    "Panetteria e prodotti da forno": [
+        "panetteria", "prodotti da forno", "pane fresco", "pane confezionato",
+        "focacce", "piadine", "prodotti da forno dolci", "brioche", "cornetti",
+        "pizza", "pane", "grissini", "crackers"
+    ],
+    "Pasta, riso e cereali": [
+        "pasta", "riso", "cereali", "pasta secca", "pasta fresca",
+        "cereali secchi", "legumi secchi", "spaghetti", "penne", "fusilli",
+        "riso integrale", "riso basmati", "farro", "orzo", "quinoa",
+        "lenticchie", "ceci", "fagioli"
+    ],
+    "Gastronomia pronta": [
+        "gastronomia", "gastronomia pronta", "piatti pronti freschi",
+        "insalate pronte", "preparazioni gastronomiche", "pranzo pronto",
+        "cena pronta", "contorni pronti", "antipasti pronti"
+    ],
+    "Surgelati": [
+        "surgelati", "verdur surgelate", "pesce surgelato", "carne surgelata",
+        "piatti pronti surgelati", "gelati", "gelato", "verdura surgelata",
+        "patate surgelate", "spinaci surgelati", "piselli surgelati"
+    ],
+    "Dispensa / grocery secco": [
+        "dispensa", "grocery", "grocery secco", "conserve", "sughi", "salse",
+        "oli", "condimenti", "spezie", "aromi", "olio", "aceto", "sale",
+        "pepe", "pomodori pelati", "passata", "sugo", "pesto"
+    ],
+    "Dolci e snack": [
+        "dolci", "snack", "biscotti", "merendine", "cioccolato",
+        "snack dolci", "snack salati", "patatine", "popcorn", "crackers",
+        "torte", "dolci confezionati", "caramelle", "cioccolatini"
+    ],
+    "Bevande": [
+        "bevande", "acqua", "bibite", "succhi", "bevande vegetali",
+        "birra", "vino", "acqua minerale", "acqua frizzante", "coca cola",
+        "aranciata", "limonata", "the", "caffè", "latte"
+    ],
+    "Alimentazione vegetale / plant-based": [
+        "vegetale", "plant-based", "carne vegetale", "affettati vegetali",
+        "latticini vegetali", "tofu", "seitan", "tempeh", "hamburger vegetale",
+        "salsicce vegetali", "beyond meat", "impossible", "vegano"
+    ],
+    "Integratori e benessere alimentare": [
+        "integratori", "benessere alimentare", "integratori vitaminici",
+        "proteine", "sport", "alimenti funzionali", "vitamine", "minerali",
+        "omega 3", "probiotici", "proteine in polvere"
     ],
 }
 
@@ -217,8 +276,8 @@ def filter_products_by_category(products: List[Dict[str, Any]], category: str) -
     
     Args:
         products: Lista di prodotti dal database
-        category: Nome della categoria (es. "Video & TV", "Informatica", "Audio")
-                  o tag specifico (es. "tv", "televisions")
+        category: Nome della categoria (es. "Ortofrutta", "Carne e pollame", "Pesce e prodotti ittici")
+                  o tag specifico (es. "carne", "pesce", "latticini")
     
     Returns:
         Lista filtrata di prodotti che appartengono alla categoria specificata
@@ -242,26 +301,12 @@ def filter_products_by_category(products: List[Dict[str, Any]], category: str) -
             break
         elif category_lower in [t.lower() for t in tags]:
             # La categoria richiesta è uno dei tag di una categoria principale
-            # IMPORTANTE: Se l'utente chiede un tag specifico (es. "tv"), usa solo tag strettamente correlati
-            # per evitare match ambigui (es. "home theater" è sia in Video & TV che in Audio)
+            # Usa tutti i tag della categoria principale
             matched_main_category = main_category
-            
-            # Se il tag richiesto è specifico (es. "tv", "speakers"), filtra i tag per evitare ambiguità
-            if category_lower in ["tv", "televisions"]:
-                # Per "tv", usa solo tag strettamente correlati a TV, escludendo "home theater" che è ambiguo
-                search_tags = [t.lower().strip() for t in tags if t.lower() not in ["home theater", "home theater systems"]]
-                # Aggiungi sempre il tag richiesto stesso
-                if category_lower not in search_tags:
-                    search_tags.append(category_lower)
-            elif category_lower in ["speakers", "wireless speakers", "bluetooth speakers", "headphones", "audio"]:
-                # Per prodotti audio specifici, escludi "home theater" che potrebbe matchare prodotti TV
-                search_tags = [t.lower().strip() for t in tags if t.lower() not in ["home theater", "home theater systems"]]
-                # Aggiungi sempre il tag richiesto stesso
-                if category_lower not in search_tags:
-                    search_tags.append(category_lower)
-            else:
-                # Per altri tag, usa tutti i tag della categoria principale
-                search_tags = [t.lower().strip() for t in tags]
+            search_tags = [t.lower().strip() for t in tags]
+            # Aggiungi sempre il tag richiesto stesso
+            if category_lower not in search_tags:
+                search_tags.append(category_lower)
             break
     
     # Se non trovata nel mapping, usa la categoria stessa come tag da cercare
@@ -304,31 +349,6 @@ def filter_products_by_category(products: List[Dict[str, Any]], category: str) -
         # Match semplice: controlla se il tag è contenuto nella categoria (o viceversa per tag lunghi)
         matches = False
         
-        # Se stiamo cercando "tv" o "televisions", verifica che il prodotto non sia principalmente audio
-        # (per evitare che prodotti audio con "home theater" vengano inclusi)
-        if category_lower in ["tv", "televisions"]:
-            # Controlla se il prodotto ha categorie audio esclusive (senza categorie video)
-            has_audio_only = False
-            has_video_tags = False
-            
-            # Tag strettamente video/TV
-            video_tags = ["tv", "televisions", "television", "projector", "video", "dvd", "blu-ray", "blu ray"]
-            # Tag strettamente audio
-            audio_tags = ["speaker", "headphone", "microphone", "amplifier", "stereo", "portable audio"]
-            
-            for product_cat in product_categories:
-                product_cat_lower = product_cat.lower()
-                # Controlla se ha tag video
-                if any(video_tag in product_cat_lower for video_tag in video_tags):
-                    has_video_tags = True
-                # Controlla se ha solo tag audio (escludendo "home theater" che è ambiguo)
-                if any(audio_tag in product_cat_lower for audio_tag in audio_tags):
-                    has_audio_only = True
-            
-            # Se il prodotto ha solo tag audio e nessun tag video, escludilo quando cerchiamo TV
-            if has_audio_only and not has_video_tags:
-                continue
-        
         for search_tag in search_tags:
             search_tag_clean = search_tag.lower().strip()
             
@@ -341,31 +361,14 @@ def filter_products_by_category(products: List[Dict[str, Any]], category: str) -
                     break
                 
                 # Match parziale: il tag è contenuto nella categoria del prodotto
-                # Es: "tv" matcha "tv mounts", "tv accessories & parts", "tv ceiling & wall mounts"
-                # IMPORTANTE: Evita match ambigui - "tv" non deve matchare "home theater" se stiamo cercando TV specifiche
+                # Es: "carne" matcha "carne bovina", "carne macinata", ecc.
                 if search_tag_clean in product_cat_clean:
-                    # Se stiamo cercando "tv" o "televisions", escludi match con "home theater" che è ambiguo
-                    # a meno che il prodotto non abbia anche tag video espliciti
-                    if category_lower in ["tv", "televisions"] and "home theater" in product_cat_clean:
-                        # Verifica se il prodotto ha anche tag video espliciti
-                        has_explicit_video_tag = any(
-                            video_tag in cat.lower() 
-                            for cat in product_categories 
-                            for video_tag in ["tv", "televisions", "television", "projector", "video"]
-                        )
-                        if not has_explicit_video_tag:
-                            # Skip questo match se il prodotto ha solo "home theater" senza tag video espliciti
-                            continue
                     matches = True
                     break
                 
                 # Match parziale inverso: la categoria è contenuta nel tag (per tag composti)
-                # Es: "televisions" contiene "tv" quando cerchiamo "tv"
-                # IMPORTANTE: Evita match ambigui anche qui
+                # Es: "pesce fresco" contiene "pesce" quando cerchiamo "pesce"
                 if len(search_tag_clean) > 3 and product_cat_clean in search_tag_clean:
-                    # Se stiamo cercando "tv" o "televisions", escludi match con "home theater"
-                    if category_lower in ["tv", "televisions"] and "home theater" in search_tag_clean:
-                        continue
                     matches = True
                     break
             
@@ -377,19 +380,12 @@ def filter_products_by_category(products: List[Dict[str, Any]], category: str) -
     
     # Log risultati
     if filtered_products:
-        # Log dettagliato per debug quando si cerca "tv" per verificare che non includa prodotti audio
-        if category_lower in ["tv", "televisions"]:
-            sample_names = [p.get("name", "Unknown")[:30] for p in filtered_products[:5]]
-            logger.info(
-                f"✅ Filter matched {len(filtered_products)}/{len(products)} products for category '{category}'. "
-                f"Sample products: {sample_names}. "
-                f"Showing only TV-related products (audio products excluded)."
-            )
-        else:
-            logger.info(
-                f"✅ Filter matched {len(filtered_products)}/{len(products)} products for category '{category}'. "
-                f"Showing only filtered products (no unrelated products will be added)."
-            )
+        sample_names = [p.get("name", "Unknown")[:30] for p in filtered_products[:5]]
+        logger.info(
+            f"✅ Filter matched {len(filtered_products)}/{len(products)} products for category '{category}'. "
+            f"Sample products: {sample_names}. "
+            f"Showing only filtered products (no unrelated products will be added)."
+        )
     else:
         logger.warning(
             f"❌ Filter found 0 products for category '{category}'. "
@@ -556,7 +552,7 @@ async def get_products_from_motherduck(category: str = None):
     Recupera i prodotti elettronici dal database MotherDuck, opzionalmente filtrati per categoria.
     
     Args:
-        category: Categoria opzionale per filtrare i prodotti (es. "Video & TV", "tv", "Informatica")
+        category: Categoria opzionale per filtrare i prodotti (es. "Ortofrutta", "Carne e pollame", "Pesce e prodotti ittici")
     
     Returns:
         List[Dict[str, Any]]: Lista di prodotti come dizionari Python.
@@ -1315,11 +1311,11 @@ CATEGORY_FILTER_INPUT_SCHEMA: Dict[str, Any] = {
     "properties": {
         "category": {
             "type": "string",
-            "description": "Categoria opzionale per filtrare i prodotti (es. 'Video & TV', 'tv', 'Informatica', 'Audio'). Se non specificata, vengono restituiti tutti i prodotti.",
+            "description": "Categoria opzionale per filtrare i prodotti (es. 'Ortofrutta', 'Carne e pollame', 'Pesce e prodotti ittici', 'Latticini e uova'). Se non specificata, vengono restituiti tutti i prodotti.",
         },
         "size_inches": {
             "type": "integer",
-            "description": "Dimensione richiesta in pollici (es. 45, 50, 55). Usa questo parametro quando il cliente specifica una dimensione specifica (es. 'TV da 45 pollici'). I prodotti con dimensione esatta verranno mostrati per primi, seguiti da prodotti con dimensioni simili.",
+            "description": "Quantità richiesta (es. 500, 1000). Usa questo parametro quando il cliente specifica una quantità specifica (es. '500g di carne'). I prodotti con quantità esatta verranno mostrati per primi, seguiti da prodotti con quantità simili.",
         },
         "target_price": {
             "type": "number",
@@ -1630,111 +1626,133 @@ class CrossSellRequestInput(BaseModel):
     max_results: int = Field(default=8, ge=1, le=8, alias="maxResults")
 
 
-CROSS_SELL_PC_KEYWORDS = [
-    "pc",
-    "laptop",
-    "notebook",
-    "desktop",
-    "computer",
-    "ultrabook",
-    "macbook",
-    "gaming",
+CROSS_SELL_CARNE_KEYWORDS = [
+    "carne",
+    "manzo",
+    "vitello",
+    "maiale",
+    "pollo",
+    "tacchino",
+    "hamburger",
+    "polpette",
+    "salsicce",
+    "bistecche",
+    "fettine",
+    "macinato",
+    "carne bovina",
+    "carne suina",
+    "carne avicola",
 ]
-CROSS_SELL_TV_KEYWORDS = ["tv", "televisore", "television", "smart tv", "oled", "qled"]
+CROSS_SELL_PESCE_KEYWORDS = [
+    "pesce",
+    "salmone",
+    "tonno",
+    "branzino",
+    "orata",
+    "gamberi",
+    "gamberetti",
+    "cozze",
+    "vongole",
+    "calamari",
+    "polpo",
+    "prodotti ittici",
+    "crostacei",
+    "molluschi",
+]
 
-CROSS_SELL_CLEANING_TAG = "screen-cleaning"
+CROSS_SELL_ACCESSORIES_TAG = "accessori"
 CROSS_SELL_POPULAR_TAG = "popular"
 CROSS_SELL_RECOMMENDED_TAG = "recommended"
 
 CROSS_SELL_FALLBACK_CATALOG: List[Dict[str, Any]] = [
     {
-        "id": "cs-clean-cloth-01",
-        "sku": "CS-CLEAN-CLOTH-01",
-        "name": "Panno in microfibra per schermi",
-        "price": 9.9,
+        "id": "cs-olio-oliva-01",
+        "sku": "CS-OLIO-OLIVA-01",
+        "name": "Olio extravergine di oliva",
+        "price": 8.9,
         "imageUrl": "",
-        "tags": [CROSS_SELL_CLEANING_TAG, CROSS_SELL_POPULAR_TAG],
-        "compatibleWith": ["pc", "tv"],
+        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_POPULAR_TAG],
+        "compatibleWith": ["carne", "pesce"],
         "priority": 95,
     },
     {
-        "id": "cs-clean-spray-01",
-        "sku": "CS-CLEAN-SPRAY-01",
-        "name": "Spray delicato per pulizia display",
-        "price": 12.9,
+        "id": "cs-sale-pepe-01",
+        "sku": "CS-SALE-PEPE-01",
+        "name": "Sale e pepe biologici",
+        "price": 4.9,
         "imageUrl": "",
-        "tags": [CROSS_SELL_CLEANING_TAG, CROSS_SELL_RECOMMENDED_TAG],
-        "compatibleWith": ["pc", "tv"],
+        "tags": [CROSS_SELL_ACCESSORIES_TAG, CROSS_SELL_RECOMMENDED_TAG],
+        "compatibleWith": ["carne", "pesce"],
         "priority": 90,
     },
     {
-        "id": "cs-usb-c-01",
-        "sku": "CS-USB-C-01",
-        "name": "Cavo USB-C 100W intrecciato",
-        "price": 19.9,
+        "id": "cs-salsa-pomodoro-01",
+        "sku": "CS-SALSA-POMODORO-01",
+        "name": "Passata di pomodoro",
+        "price": 2.9,
         "imageUrl": "",
-        "tags": ["usb-c", CROSS_SELL_RECOMMENDED_TAG],
-        "compatibleWith": ["pc"],
+        "tags": ["salsa", CROSS_SELL_RECOMMENDED_TAG],
+        "compatibleWith": ["pasta"],
         "priority": 80,
     },
     {
-        "id": "cs-charger-01",
-        "sku": "CS-CHARGER-01",
-        "name": "Caricatore USB-C 65W",
-        "price": 34.9,
+        "id": "cs-pane-01",
+        "sku": "CS-PANE-01",
+        "name": "Pane fresco",
+        "price": 3.5,
         "imageUrl": "",
-        "tags": ["charger", CROSS_SELL_POPULAR_TAG],
-        "compatibleWith": ["pc"],
+        "tags": ["pane", CROSS_SELL_POPULAR_TAG],
+        "compatibleWith": ["salumi", "formaggi"],
         "priority": 78,
     },
     {
-        "id": "cs-hdmi-01",
-        "sku": "CS-HDMI-01",
-        "name": "Cavo HDMI 2.1 ad alta velocita",
-        "price": 24.9,
+        "id": "cs-insalata-01",
+        "sku": "CS-INSALATA-01",
+        "name": "Insalata mista",
+        "price": 2.5,
         "imageUrl": "",
-        "tags": ["hdmi", CROSS_SELL_POPULAR_TAG],
-        "compatibleWith": ["tv"],
+        "tags": ["insalata", CROSS_SELL_POPULAR_TAG],
+        "compatibleWith": ["carne", "pesce"],
         "priority": 82,
     },
     {
-        "id": "cs-remote-01",
-        "sku": "CS-REMOTE-01",
-        "name": "Telecomando universale smart",
-        "price": 29.9,
+        "id": "cs-aceto-01",
+        "sku": "CS-ACETO-01",
+        "name": "Aceto balsamico di Modena",
+        "price": 6.9,
         "imageUrl": "",
-        "tags": ["remote", CROSS_SELL_RECOMMENDED_TAG],
-        "compatibleWith": ["tv"],
+        "tags": ["condimento", CROSS_SELL_RECOMMENDED_TAG],
+        "compatibleWith": ["insalata", "ortofrutta"],
         "priority": 75,
     },
     {
-        "id": "cs-mount-01",
-        "sku": "CS-MOUNT-01",
-        "name": "Staffa TV slim orientabile",
-        "price": 49.9,
+        "id": "cs-limone-01",
+        "sku": "CS-LIMONE-01",
+        "name": "Limoni freschi",
+        "price": 2.9,
         "imageUrl": "",
-        "tags": ["tv-mount", CROSS_SELL_RECOMMENDED_TAG],
-        "compatibleWith": ["tv"],
+        "tags": ["ortofrutta", CROSS_SELL_RECOMMENDED_TAG],
+        "compatibleWith": ["pesce"],
         "priority": 72,
     },
     {
-        "id": "cs-ups-01",
-        "sku": "CS-UPS-01",
-        "name": "Ciabatta con protezione UPS",
-        "price": 39.9,
+        "id": "cs-spezie-01",
+        "sku": "CS-SPEZIE-01",
+        "name": "Mix di spezie per carne",
+        "price": 5.9,
         "imageUrl": "",
-        "tags": ["power", CROSS_SELL_POPULAR_TAG],
-        "compatibleWith": ["pc", "tv"],
+        "tags": ["spezie", CROSS_SELL_POPULAR_TAG],
+        "compatibleWith": ["carne"],
         "priority": 70,
     },
     {
-        "id": "cs-stand-01",
-        "sku": "CS-STAND-01",
-        "name": "Supporto da scrivania regolabile",
-        "price": 44.9,
+        "id": "cs-formaggio-01",
+        "sku": "CS-FORMAGGIO-01",
+        "name": "Formaggio grattugiato",
+        "price": 4.5,
         "imageUrl": "",
-        "tags": ["stand", CROSS_SELL_RECOMMENDED_TAG],
-        "compatibleWith": ["pc"],
+        "tags": ["formaggio", CROSS_SELL_RECOMMENDED_TAG],
+        "compatibleWith": ["pasta"],
         "priority": 68,
     },
 ]
@@ -1773,27 +1791,27 @@ def _get_cart_category_intent(
         if not item.category:
             continue
         normalized_category = _normalize_text(item.category)
-        if any(keyword in normalized_category for keyword in ["pc", "laptop", "desktop"]):
-            explicit_categories.append("pc")
-        if "tv" in normalized_category or "televis" in normalized_category:
-            explicit_categories.append("tv")
+        if any(keyword in normalized_category for keyword in ["carne", "manzo", "pollo", "maiale", "hamburger", "polpette"]):
+            explicit_categories.append("carne")
+        if any(keyword in normalized_category for keyword in ["pesce", "salmone", "tonno", "gamberi", "cozze"]):
+            explicit_categories.append("pesce")
 
-    has_pc = (
-        "pc" in explicit_categories
-        or any(keyword in tokens or keyword in normalized_text for keyword in CROSS_SELL_PC_KEYWORDS)
+    has_carne = (
+        "carne" in explicit_categories
+        or any(keyword in tokens or keyword in normalized_text for keyword in CROSS_SELL_CARNE_KEYWORDS)
     )
-    has_tv = (
-        "tv" in explicit_categories
-        or any(keyword in tokens or keyword in normalized_text for keyword in CROSS_SELL_TV_KEYWORDS)
+    has_pesce = (
+        "pesce" in explicit_categories
+        or any(keyword in tokens or keyword in normalized_text for keyword in CROSS_SELL_PESCE_KEYWORDS)
     )
 
     categories: List[str] = []
-    if has_pc:
-        categories.append("pc")
-    if has_tv:
-        categories.append("tv")
+    if has_carne:
+        categories.append("carne")
+    if has_pesce:
+        categories.append("pesce")
 
-    return categories, has_pc or has_tv
+    return categories, has_carne or has_pesce
 
 
 def _get_cart_identifiers(cart_items: List[CrossSellCartItemInput]) -> tuple[set[str], set[str]]:
@@ -1915,19 +1933,19 @@ def _detect_cart_intent_from_products(
         )
     )
 
-    has_tv = any(keyword in normalized_categories for keyword in ["tv", "televis"])
-    has_pc = any(
+    has_pesce = any(keyword in normalized_categories for keyword in ["pesce", "salmone", "tonno", "gamberi", "cozze", "prodotti ittici"])
+    has_carne = any(
         keyword in normalized_categories
-        for keyword in ["laptop", "computer", "desktop", "notebook", "pc"]
+        for keyword in ["carne", "manzo", "pollo", "maiale", "hamburger", "polpette", "salsicce"]
     )
 
     categories: List[str] = []
-    if has_pc:
-        categories.append("pc")
-    if has_tv:
-        categories.append("tv")
+    if has_carne:
+        categories.append("carne")
+    if has_pesce:
+        categories.append("pesce")
 
-    return categories, has_pc or has_tv
+    return categories, has_carne or has_pesce
 
 
 def _map_product_to_cross_sell_item(product: Dict[str, Any]) -> Dict[str, Any]:
@@ -1939,27 +1957,33 @@ def _map_product_to_cross_sell_item(product: Dict[str, Any]) -> Dict[str, Any]:
     normalized_categories = _normalize_text(" ".join(primary_categories))
 
     tags: List[str] = []
-    if "panno" in normalized_categories or "clean" in normalized_categories:
-        tags.append(CROSS_SELL_CLEANING_TAG)
-    if "cavi" in normalized_categories or "hdmi" in normalized_categories:
+    if "olio" in normalized_categories or "condimento" in normalized_categories:
+        tags.append(CROSS_SELL_ACCESSORIES_TAG)
+    if "salsa" in normalized_categories or "sugo" in normalized_categories:
         tags.append(CROSS_SELL_POPULAR_TAG)
-    if "telecomand" in normalized_categories or "caric" in normalized_categories:
+    if "spezie" in normalized_categories or "aromi" in normalized_categories:
         tags.append(CROSS_SELL_RECOMMENDED_TAG)
 
     compatible_with: List[str] = []
-    if "tv" in normalized_categories or "televis" in normalized_categories:
-        compatible_with.append("tv")
-    if any(token in normalized_categories for token in ["computer", "laptop", "desktop", "pc"]):
-        compatible_with.append("pc")
+    if any(token in normalized_categories for token in ["carne", "manzo", "pollo", "maiale", "hamburger"]):
+        compatible_with.append("carne")
+    if any(token in normalized_categories for token in ["pesce", "salmone", "tonno", "gamberi"]):
+        compatible_with.append("pesce")
+    if "pasta" in normalized_categories:
+        compatible_with.append("pasta")
+    if any(token in normalized_categories for token in ["salumi", "prosciutto", "salami"]):
+        compatible_with.append("salumi")
+    if any(token in normalized_categories for token in ["formaggi", "formaggio", "latticini"]):
+        compatible_with.append("formaggi")
 
     priority = 60
-    if CROSS_SELL_CLEANING_TAG in tags:
+    if CROSS_SELL_ACCESSORIES_TAG in tags:
         priority = 90
-    elif "cavi" in normalized_categories:
+    elif "salsa" in normalized_categories or "sugo" in normalized_categories:
         priority = 82
-    elif "telecomand" in normalized_categories:
+    elif "spezie" in normalized_categories:
         priority = 78
-    elif "caric" in normalized_categories:
+    elif "condimento" in normalized_categories:
         priority = 76
 
     return {
@@ -1984,25 +2008,27 @@ def _get_cross_sell_suggestions_from_db(
         return []
 
     cart_products = _resolve_cart_products(cart_items, products)
-    categories, has_screen_device = _detect_cart_intent_from_products(cart_products)
+    categories, has_food_category = _detect_cart_intent_from_products(cart_products)
 
-    tv_keywords = ["cavi per tv", "telecomandi per tv", "panno per tv", "staff", "support"]
-    pc_keywords = [
-        "cavi per computer",
-        "panno per computer",
-        "caric",
-        "alimentatore",
-        "adattatore",
-        "hub",
-        "accessori",
+    carne_keywords = ["olio", "sale", "pepe", "spezie", "condimenti", "marinata"]
+    pesce_keywords = [
+        "olio",
+        "limone",
+        "sale",
+        "pepe",
+        "spezie",
+        "condimenti",
+        "insalata",
     ]
 
     accessory_products: List[Dict[str, Any]] = []
     for product in products:
         normalized_categories = _normalize_text(" ".join(_extract_product_categories(product)))
-        if "tv" in categories and any(keyword in normalized_categories for keyword in tv_keywords):
+        if "carne" in categories and any(keyword in normalized_categories for keyword in carne_keywords):
             accessory_products.append(product)
-        elif "pc" in categories and any(keyword in normalized_categories for keyword in pc_keywords):
+        elif "pesce" in categories and any(keyword in normalized_categories for keyword in pesce_keywords):
+            accessory_products.append(product)
+        elif "pasta" in categories and any(keyword in normalized_categories for keyword in ["salsa", "sugo", "pomodoro", "formaggio"]):
             accessory_products.append(product)
 
     catalog = [_map_product_to_cross_sell_item(product) for product in accessory_products]
@@ -2010,7 +2036,7 @@ def _get_cross_sell_suggestions_from_db(
 
     suggestions = _get_cross_sell_suggestions(cart_items, catalog)
 
-    if has_screen_device:
+    if has_food_category:
         suggestions = [item for item in suggestions if item.get("sku")]
 
     return suggestions[:max_results]
@@ -2024,7 +2050,7 @@ def _get_cross_sell_suggestions(
     if not cart_items or not catalog:
         return []
 
-    categories, has_screen_device = _get_cart_category_intent(cart_items)
+    categories, has_food_category = _get_cart_category_intent(cart_items)
     cart_ids, cart_names = _get_cart_identifiers(cart_items)
     normalized_cart_text = _normalize_text(_collect_cart_text(cart_items))
 
@@ -2048,58 +2074,61 @@ def _get_cross_sell_suggestions(
         seen_skus.add(sku)
         suggestions.append(item)
 
-    if has_screen_device and categories:
+    if has_food_category and categories:
         cleaning_candidates = _sort_by_priority(
             [
                 item
                 for item in eligible
-                if CROSS_SELL_CLEANING_TAG in (item.get("tags") or [])
+                if CROSS_SELL_ACCESSORIES_TAG in (item.get("tags") or [])
                 and any(category in categories for category in item.get("compatibleWith", []))
             ]
         )
         for item in cleaning_candidates[:2]:
             push_suggestion(item)
 
-    if "pc" in categories:
-        needs_usb_c = not _has_accessory_keyword(cart_items, ["usb-c", "usb c"])
-        needs_charger = not _has_accessory_keyword(cart_items, ["charger", "caricatore"])
-        pc_candidates = [item for item in eligible if "pc" in item.get("compatibleWith", [])]
+    if "carne" in categories:
+        needs_olio = not _has_accessory_keyword(cart_items, ["olio", "condimento"])
+        needs_spezie = not _has_accessory_keyword(cart_items, ["spezie", "sale", "pepe"])
+        carne_candidates = [item for item in eligible if "carne" in item.get("compatibleWith", [])]
 
-        if needs_usb_c:
+        if needs_olio:
             for item in _sort_by_priority(
-                [item for item in pc_candidates if "usb-c" in (item.get("tags") or [])]
+                [item for item in carne_candidates if "olio" in (item.get("tags") or []) or CROSS_SELL_ACCESSORIES_TAG in (item.get("tags") or [])]
             )[:1]:
                 push_suggestion(item)
 
-        if needs_charger:
+        if needs_spezie:
             for item in _sort_by_priority(
-                [item for item in pc_candidates if "charger" in (item.get("tags") or [])]
+                [item for item in carne_candidates if "spezie" in (item.get("tags") or [])]
             )[:1]:
                 push_suggestion(item)
 
-    if "tv" in categories:
-        needs_hdmi = "hdmi" not in normalized_cart_text
-        tv_candidates = [item for item in eligible if "tv" in item.get("compatibleWith", [])]
+    if "pesce" in categories:
+        needs_limone = "limone" not in normalized_cart_text
+        needs_olio = not _has_accessory_keyword(cart_items, ["olio", "condimento"])
+        pesce_candidates = [item for item in eligible if "pesce" in item.get("compatibleWith", [])]
 
-        if needs_hdmi:
+        if needs_limone:
             for item in _sort_by_priority(
-                [item for item in tv_candidates if "hdmi" in (item.get("tags") or [])]
+                [item for item in pesce_candidates if "limone" in (item.get("tags") or []) or "ortofrutta" in (item.get("tags") or [])]
             )[:1]:
                 push_suggestion(item)
 
-        for item in _sort_by_priority(
-            [item for item in tv_candidates if "remote" in (item.get("tags") or [])]
-        )[:1]:
-            push_suggestion(item)
+        if needs_olio:
+            for item in _sort_by_priority(
+                [item for item in pesce_candidates if "olio" in (item.get("tags") or []) or CROSS_SELL_ACCESSORIES_TAG in (item.get("tags") or [])]
+            )[:1]:
+                push_suggestion(item)
 
-        for item in _sort_by_priority(
-            [
-                item
-                for item in tv_candidates
-                if any(tag in ["tv-mount", "stand"] for tag in (item.get("tags") or []))
-            ]
-        )[:1]:
-            push_suggestion(item)
+    if "pasta" in categories:
+        needs_salsa = not _has_accessory_keyword(cart_items, ["salsa", "sugo", "pomodoro"])
+        pasta_candidates = [item for item in eligible if "pasta" in item.get("compatibleWith", [])]
+
+        if needs_salsa:
+            for item in _sort_by_priority(
+                [item for item in pasta_candidates if "salsa" in (item.get("tags") or []) or "sugo" in (item.get("tags") or [])]
+            )[:1]:
+                push_suggestion(item)
 
     category_set = set(categories)
     scored: List[tuple[Dict[str, Any], int]] = []
@@ -2111,11 +2140,13 @@ def _get_cross_sell_suggestions(
             continue
 
         score = int(item.get("priority", 0))
-        if has_screen_device and CROSS_SELL_CLEANING_TAG in (item.get("tags") or []):
+        if has_food_category and CROSS_SELL_ACCESSORIES_TAG in (item.get("tags") or []):
             score += 15
-        if "pc" in categories and "pc" in item.get("compatibleWith", []):
+        if "carne" in categories and "carne" in item.get("compatibleWith", []):
             score += 10
-        if "tv" in categories and "tv" in item.get("compatibleWith", []):
+        if "pesce" in categories and "pesce" in item.get("compatibleWith", []):
+            score += 10
+        if "pasta" in categories and "pasta" in item.get("compatibleWith", []):
             score += 10
         if CROSS_SELL_POPULAR_TAG in (item.get("tags") or []):
             score += 4
@@ -2253,7 +2284,7 @@ def _tool_description(widget: GdoWidget) -> str:
             "Mostra un carosello interattivo di prodotti GDO (massimo 6 prodotti). "
             "Usa questo tool quando l'utente vuole sfogliare prodotti in formato carosello o visualizzare "
             "una selezione di prodotti in modo interattivo. Puoi filtrare per categoria usando il parametro 'category' "
-            "(es. 'Video & TV', 'tv', 'Informatica', 'Audio'). Restituisce un widget HTML con un carosello navigabile."
+            "(es. 'Ortofrutta', 'Carne e pollame', 'Pesce e prodotti ittici', 'Latticini e uova'). Restituisce un widget HTML con un carosello navigabile."
         ),
         "gdo-albums": (
             "Mostra una galleria di prodotti GDO con visualizzazione a album. "
