@@ -239,7 +239,7 @@ Questo documento traccia tutti i bug trovati, le loro risoluzioni e le verifiche
   - **Soluzione applicata**:
     1. Verificato il contenuto del file `.env` che conteneva:
        - `MOTHERDUCK_KEY=...` (già presente)
-       - `MOTHERDUCK_DB_NAME=app_gpt_elettronica` (già presente)
+       - `MOTHERDUCK_DB_NAME=app_gpt_gdo` (già presente)
     2. Aggiunto `MOTHERDUCK_TOKEN=...` al file `.env` con lo stesso valore di `MOTHERDUCK_KEY`
     3. Il file `.env` ora contiene tutte e tre le variabili necessarie
   - **Nota**: Il codice Python cerca specificamente `MOTHERDUCK_TOKEN` (riga 80 in `main.py`), quindi questa variabile è obbligatoria nel file `.env`. `MOTHERDUCK_KEY` può rimanere per compatibilità con altri tool o script.

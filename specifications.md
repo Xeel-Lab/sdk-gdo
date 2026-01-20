@@ -120,7 +120,7 @@ Questo documento descrive i passaggi necessari per sostituire i prodotti attuali
 ### 2.3 Migrazione dati da JSON a Database MotherDuck
 - [x] **ALTA PRIORITÀ - Migrazione dati da `markers.json` a database**: I dati dei widget UI (carousel, list, map, albums, shop) attualmente vengono presi da `src/gdo/markers.json`. Questa modifica richiede di migrare tutti i widget per leggere i dati dal database MotherDuck invece che dal file JSON.
   - **Stato attuale**: ✅ **COMPLETATO** [2026-01-09] Tutti i widget ora leggono **esclusivamente** i dati da `toolOutput` (popolato dal server Python). Il fallback a JSON è stato rimosso come richiesto. Gli asset sono stati rigenerati con la build.
-  - **Obiettivo**: ✅ **RAGGIUNTO** I dati vengono presi **solo** dal database MotherDuck (tabella `prodotti_xeel_shop` nello schema `main` del database `app_gpt_elettronica`) quando i tool vengono chiamati.
+  - **Obiettivo**: ✅ **RAGGIUNTO** I dati vengono presi **solo** dal database MotherDuck (tabella `prodotti_xeel_shop` nello schema `main` del database `app_gpt_gdo`) quando i tool vengono chiamati.
   - **Soluzione implementata**:
     1. ✅ **Funzione di trasformazione prodotti->places** (`gdo_server_python/main.py`):
        - Creata funzione `transform_products_to_places()` che converte prodotti dal database in formato "places"
@@ -173,15 +173,15 @@ Questo documento descrive i passaggi necessari per sostituire i prodotti attuali
 - [x]  **Eseguire la build del frontend**: Utilizza i comandi di `pnpm` o `npm` per compilare il frontend, come specificato in `package.json` (es. `pnpm run build`). Questo genererà i file HTML e JavaScript necessari per i widget.
 - [x]  **Avviare il server Python**: Esegui il backend Python che serve i widget.
   - **IMPORTANTE - Integrazione MotherDuck**: Il server DEVE essere configurato con MotherDuck per funzionare correttamente. Il server usa l'MCP server di MotherDuck e richiede la variabile d'ambiente `MOTHERDUCK_TOKEN` per:
-    - Connettere al database MotherDuck (`md:app_gpt_elettronica`)
+    - Connettere al database MotherDuck (`md:app_gpt_gdo`)
     - Eseguire il tool `product-list` che recupera prodotti dalla tabella `prodotti_xeel_shop`
     - Senza `MOTHERDUCK_TOKEN`, il tool `product-list` non funzionerà e solleverà un `ValueError` quando viene chiamato
   - **Configurazione richiesta**:
     - Variabile d'ambiente obbligatoria: `MOTHERDUCK_TOKEN` (token di autenticazione MotherDuck)
-    - Database: `app_gpt_elettronica`
+    - Database: `app_gpt_gdo`
     - Schema: `main`
     - Tabella: `prodotti_xeel_shop`
-  - **Integrazione MotherDuck**: [2026-01-08] Il server usa DuckDB direttamente per connettersi a MotherDuck (riga 47-65 in `main.py`) tramite `duckdb.connect(f"md:app_gpt_elettronica?motherduck_token={md_token}")`. Questo approccio funziona correttamente e permette al server di recuperare i prodotti dal database MotherDuck.
+  - **Integrazione MotherDuck**: [2026-01-08] Il server usa DuckDB direttamente per connettersi a MotherDuck (riga 47-65 in `main.py`) tramite `duckdb.connect(f"md:app_gpt_gdo?motherduck_token={md_token}")`. Questo approccio funziona correttamente e permette al server di recuperare i prodotti dal database MotherDuck.
     - **Implementazione**: L'integrazione è implementata direttamente nel progetto. La funzione `get_motherduck_connection()` gestisce la connessione a MotherDuck usando DuckDB, e `get_products_from_motherduck()` recupera i prodotti dalla tabella `prodotti_xeel_shop`.
     - **Stato**: Funzionante. Il server richiede `MOTHERDUCK_TOKEN` come variabile d'ambiente obbligatoria per funzionare correttamente.
 
@@ -211,9 +211,9 @@ Questa sezione verifica che il progetto rispetti i principi architetturali MCP s
 #### 4.0.3 Strict Security Boundaries
 - [x] **Accesso limitato al contesto**: Il server accede solo ai dati necessari
   - **Nota**: Per verifiche sui permessi MotherDuck, vedere `bugs.md` sezione "Verifiche da fare - Architettura MCP"
-  - **Integrazione MotherDuck**: Il server DEVE avere `MOTHERDUCK_TOKEN` configurato per funzionare. Il server attualmente usa DuckDB per connettersi direttamente a MotherDuck (`md:app_gpt_elettronica`) e recupera prodotti dalla tabella `prodotti_xeel_shop` nello schema `main`. Senza il token, `get_motherduck_connection()` solleverà un `ValueError`.
+  - **Integrazione MotherDuck**: Il server DEVE avere `MOTHERDUCK_TOKEN` configurato per funzionare. Il server attualmente usa DuckDB per connettersi direttamente a MotherDuck (`md:app_gpt_gdo`) e recupera prodotti dalla tabella `prodotti_xeel_shop` nello schema `main`. Senza il token, `get_motherduck_connection()` solleverà un `ValueError`.
   - **PROBLEMA IDENTIFICATO - Integrazione MCP Server**: [2026-01-08] Il server usa DuckDB direttamente (riga 47-65) invece di integrarsi con l'MCP server di MotherDuck. Secondo il repository di riferimento `mcp-motherduck-medicair`, il server dovrebbe comporsi con l'MCP server di MotherDuck o usare il tool `query` dell'MCP server invece di DuckDB diretto.
-    - **Stato attuale**: `get_motherduck_connection()` usa `duckdb.connect(f"md:app_gpt_elettronica?motherduck_token={md_token}")` direttamente
+    - **Stato attuale**: `get_motherduck_connection()` usa `duckdb.connect(f"md:app_gpt_gdo?motherduck_token={md_token}")` direttamente
     - **Dovrebbe essere**: Il server dovrebbe usare l'MCP server di MotherDuck (come `mcp-server-medicair` o `mcp.server.motherduck`) per eseguire query SQL
     - **Azioni richieste**: Analizzare il repository di riferimento e modificare l'integrazione per usare l'MCP server di MotherDuck invece di DuckDB diretto
   - Nota: I permessi MotherDuck specifici devono essere verificati a livello di configurazione database.
@@ -1076,7 +1076,7 @@ Questa sezione verifica che il client/widget rispetti tutte le linee guida MCP C
     - [ ]  **Variabili d'ambiente**: Aggiungi `MOTHERDUCK_TOKEN` (con il tuo token), `MCP_ALLOWED_HOSTS` (deve includere `sdk-gdo.onrender.com`), `MCP_ALLOWED_ORIGINS` (deve includere `https://chat.openai.com` e `https://sdk-gdo.onrender.com`) e altre variabili necessarie.
       - **IMPORTANTE**: [2026-01-08] `MOTHERDUCK_TOKEN` è OBBLIGATORIO per il funzionamento del server. Il server DEVE avere MotherDuck configurato perché integra MotherDuck direttamente usando DuckDB per recuperare i prodotti GDO. Senza questo token, il tool `product-list` non funzionerà.
       - **Variabili richieste**:
-        - `MOTHERDUCK_TOKEN` (OBBLIGATORIO): Token di autenticazione MotherDuck per accedere al database `app_gpt_elettronica`
+        - `MOTHERDUCK_TOKEN` (OBBLIGATORIO): Token di autenticazione MotherDuck per accedere al database `app_gpt_gdo`
         - `MCP_ALLOWED_HOSTS`: Deve includere `sdk-gdo.onrender.com` per Transport Security
         - `MCP_ALLOWED_ORIGINS`: Deve includere `https://chat.openai.com` e `https://sdk-gdo.onrender.com` per CORS
 
@@ -1339,7 +1339,7 @@ Attraverso questo MCP server hai accesso ai seguenti tool per visualizzare e ges
 
 #Database MotherDuck
 
-Attraverso il tool `product-list` accederai al database `app_gpt_elettronica` con la seguente tabella:
+Attraverso il tool `product-list` accederai al database `app_gpt_gdo` con la seguente tabella:
 
 ### 1. **prodotti_xeel_shop** - Catalogo prodotti elettronici
 
@@ -1454,7 +1454,7 @@ Attraverso il tool `product-list` accederai al database `app_gpt_elettronica` co
 
 ⚠️ **Carrello e Checkout**: Il tool `gdo-shop` include funzionalità complete di carrello con possibilità di aggiungere/rimuovere prodotti, selezionare quantità, filtrare per categoria (Video & TV, Informatica, Audio), e procedere al checkout. Usalo quando l'utente è pronto ad acquistare. Il widget `shopping-cart` completa il pagamento simulato, **svuota il carrello** e mostra un **riepilogo post-acquisto** con prodotti, totali, dati fattura e data di consegna. Il pulsante "Procedi al pagamento" apre una **modale** per inserire i dati di fatturazione. I prezzi includono IVA; la spedizione è mostrata nel carrello (gratis sopra 50€).
 
-⚠️ **Database in Tempo Reale**: Il tool `product-list` recupera dati in tempo reale dal database MotherDuck (`app_gpt_elettronica`). I dati sono sempre aggiornati e includono tutti i dettagli tecnici necessari per confronti e analisi.
+⚠️ **Database in Tempo Reale**: Il tool `product-list` recupera dati in tempo reale dal database MotherDuck (`app_gpt_gdo`). I dati sono sempre aggiornati e includono tutti i dettagli tecnici necessari per confronti e analisi.
 
 ⚠️ **Categorie Prodotti**: I prodotti sono organizzati in tre categorie principali:
 - **📺 Video & TV**: Televisori, accessori TV, supporti, proiettori, lettori DVD/Blu-ray

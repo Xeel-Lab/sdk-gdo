@@ -541,7 +541,7 @@ def rank_products_by_criteria(
 
 async def get_products_from_motherduck(category: str = None):
     """
-    Recupera i prodotti elettronici dal database MotherDuck, opzionalmente filtrati per categoria.
+    Recupera i prodotti alimentari dal database MotherDuck, opzionalmente filtrati per categoria.
     
     Args:
         category: Categoria opzionale per filtrare i prodotti (es. "Ortofrutta", "Carne e pollame", "Pesce e prodotti ittici")
@@ -553,10 +553,11 @@ async def get_products_from_motherduck(category: str = None):
     try:
         logger.info("Connecting to MotherDuck database")
         with get_motherduck_connection() as con:
-            # Query per recuperare tutti i prodotti dalla tabella prodotti_xeel_shop
+            # Query per recuperare tutti i prodotti dalla tabella products_xeel_shop
             # La tabella è nello schema 'main' (impostato in get_motherduck_connection)
+            # Database: app_gpt_gdo.main.products_xeel_shop
             # Colonne: ID, company, description, price, categories
-            query = "SELECT ID, company, description, price, categories FROM prodotti_xeel_shop"
+            query = "SELECT ID, company, description, price, categories FROM products_xeel_shop"
             logger.debug(f"Executing query: {query}")
             products_df = con.execute(query).fetchdf()
             
@@ -613,7 +614,7 @@ def transform_products_to_places(
     I widget carousel/map/list/albums si aspettano una struttura 'places' con:
     - id, name, coords (lat, lon), description, city, price (stringa), thumbnail
     
-    I prodotti dal database prodotti_xeel_shop hanno:
+    I prodotti dal database app_gpt_gdo.main.products_xeel_shop hanno:
     - ID, company, description, price, categories
     
     Questa funzione mappa i campi dal database e genera valori default per campi mancanti 
@@ -745,7 +746,7 @@ def transform_products_to_albums(
       - photos array con id, title, url
     
     Strategia: Raggruppa prodotti per categoria (categories).
-    I prodotti dal database prodotti_xeel_shop hanno:
+    I prodotti dal database app_gpt_gdo.main.products_xeel_shop hanno:
     - categories (stringa separata da virgole)
     - description per il titolo
     
@@ -2193,25 +2194,25 @@ def _tool_description(widget: GdoWidget) -> str:
             "Mostra una galleria di prodotti GDO con visualizzazione a album. "
             "Usa questo tool quando l'utente chiede di vedere una galleria di prodotti, foto o immagini "
             "in formato album. Puoi filtrare per categoria usando il parametro 'category' "
-            "(es. 'Video & TV', 'tv', 'Informatica', 'Audio'). Restituisce un widget HTML con una galleria interattiva."
+            "(es. 'Ortofrutta', 'Carne e pollame', 'Pesce e prodotti ittici', 'Latticini e uova'). Restituisce un widget HTML con una galleria interattiva."
         ),
         "gdo-list": (
             "Mostra una lista di prodotti GDO. "
             "Usa questo tool quando l'utente chiede di vedere un elenco di prodotti o una lista semplice. "
             "Puoi filtrare per categoria usando il parametro 'category' "
-            "(es. 'Video & TV', 'tv', 'Informatica', 'Audio'). Restituisce un widget HTML con una lista formattata di prodotti."
+            "(es. 'Ortofrutta', 'Carne e pollame', 'Pesce e prodotti ittici', 'Latticini e uova'). Restituisce un widget HTML con una lista formattata di prodotti."
         ),
         "gdo-shop": (
             "Apre il negozio GDO completo con funzionalità di shopping (massimo 24 prodotti). "
             "Usa questo tool quando l'utente vuole accedere al negozio completo, vedere prodotti con dettagli, "
             "o iniziare lo shopping. Puoi filtrare per categoria usando il parametro 'category' "
-            "(es. 'Video & TV', 'tv', 'Informatica', 'Audio'). Restituisce un widget HTML con l'interfaccia completa del negozio."
+            "(es. 'Ortofrutta', 'Carne e pollame', 'Pesce e prodotti ittici', 'Latticini e uova'). Restituisce un widget HTML con l'interfaccia completa del negozio."
         ),
         "product-list": (
-            "Recupera e mostra la lista completa di prodotti elettronici dal database MotherDuck. "
+            "Recupera e mostra la lista completa di prodotti alimentari dal database MotherDuck. "
             "Usa questo tool quando l'utente chiede di vedere tutti i prodotti disponibili, cercare prodotti, "
             "o visualizzare il catalogo completo. Puoi filtrare per categoria usando il parametro 'category' "
-            "(es. 'Video & TV', 'tv', 'Informatica', 'Audio'). Restituisce dati strutturati JSON con i prodotti recuperati dal database, "
+            "(es. 'Ortofrutta', 'Carne e pollame', 'Pesce e prodotti ittici', 'Latticini e uova'). Restituisce dati strutturati JSON con i prodotti recuperati dal database, "
             "inclusi dettagli come nome, prezzo, descrizione e immagini."
         ),
         "shopping-cart": (
