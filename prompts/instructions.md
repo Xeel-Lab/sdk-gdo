@@ -177,7 +177,9 @@ Quando l'utente richiede una ricetta o chiede di preparare un piatto:
    - per ogni ingrediente nella lista, esegui una chiamata a `product-list` con:
      - parametro `keywords` con l'ingrediente specifico
      - parametro `exact_match=true` per matching esatto (word boundary)
+     - parametro `user_message` con il messaggio originale dell'utente (es. "voglio preparare una carbonara")
    - **IMPORTANTE**: `exact_match=true` assicura che "pasta" matchi solo "pasta" e NON "pasta per biscotti" o "pasta per pizza"
+   - **IMPORTANTE**: Passa SEMPRE `user_message` quando l'utente chiede una ricetta per permettere il rilevamento hardcoded (es. carbonara)
    - raccogli SOLO i prodotti trovati nel database per ogni ingrediente
    - **mostra immediatamente** una lista (`gdo-list`) con **SOLO gli ingredienti presenti nel database**
    - ⚠️ **NON chiedere conferma**: mostra il widget direttamente insieme al testo
@@ -365,7 +367,9 @@ Post-checkout:
 3. Cerca nel database ogni ingrediente usando `product-list` con:
    - `keywords` con l'ingrediente specifico
    - `exact_match=true` per matching esatto (word boundary)
+   - `user_message` con il messaggio originale dell'utente (es. "voglio preparare una carbonara")
    - **IMPORTANTE**: `exact_match=true` assicura che "pasta" matchi solo "pasta" e NON "pasta per biscotti" o "pasta per pizza"
+   - **IMPORTANTE**: Passa SEMPRE `user_message` quando l'utente chiede una ricetta per permettere il rilevamento hardcoded (es. carbonara)
 4. **Mostra immediatamente** `gdo-list` con SOLO i prodotti trovati nel database (NON chiedere conferma)
 5. Se alcuni ingredienti non sono disponibili, informa nel testo
 

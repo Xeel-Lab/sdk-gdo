@@ -2882,6 +2882,11 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         logger.debug(
             f"User input received for tool '{tool_name}':\n{arguments_json}"
         )
+        # Log specifico per user_message se presente
+        if "user_message" in arguments:
+            logger.info(f"🔍 Tool '{tool_name}': user_message received: '{arguments.get('user_message')}'")
+        else:
+            logger.warning(f"⚠️ Tool '{tool_name}': user_message NOT present in arguments. Available keys: {list(arguments.keys())}")
     except Exception as e:
         logger.debug(
             f"User input received for tool '{tool_name}': {arguments} (JSON serialization failed: {e})"
@@ -3739,9 +3744,40 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck")
             
             # ECCEZIONE HARDCODED: Carbonara per product-list
-            # Se viene rilevata una richiesta per carbonara nel messaggio originale dell'utente,
-            # imposta automaticamente i product_ids specifici ed esegue la query hardcoded
-            if _detect_carbonara_request(user_message=user_message):
+            # Rileva carbonara nel messaggio originale dell'utente O nelle keywords (fallback)
+            # CONTROLLO AGGRESSIVO: controlla sempre user_message E keywords per massima affidabilità
+            logger.info(f"🔍 Tool {tool_name}: Checking for carbonara - user_message='{user_message}', keywords={keywords}")
+            
+            carbonara_detected = False
+            detection_source = None
+            
+            # Controllo 1: user_message (priorità)
+            if user_message:
+                carbonara_detected = _detect_carbonara_request(user_message=user_message)
+                if carbonara_detected:
+                    detection_source = "user_message"
+                    logger.info(f"🔒 Tool {tool_name}: Carbonara detected in user_message: '{user_message}'")
+            
+            # Controllo 2: keywords (fallback se user_message non matcha o non esiste)
+            if not carbonara_detected and keywords:
+                # Crea una stringa combinata da keywords per il controllo
+                keywords_list = keywords if isinstance(keywords, list) else [keywords]
+                keywords_text = " ".join(str(k).lower() for k in keywords_list if k)
+                if keywords_text:
+                    carbonara_detected = _detect_carbonara_request(user_message=keywords_text)
+                    if carbonara_detected:
+                        detection_source = "keywords"
+                        logger.info(f"🔒 Tool {tool_name}: Carbonara detected in keywords: {keywords}")
+            
+            # Controllo 3: anche category come ultimo fallback
+            if not carbonara_detected and category:
+                carbonara_detected = _detect_carbonara_request(user_message=category.lower())
+                if carbonara_detected:
+                    detection_source = "category"
+                    logger.info(f"🔒 Tool {tool_name}: Carbonara detected in category: '{category}'")
+            
+            # Se carbonara rilevata, imposta product_ids hardcoded
+            if carbonara_detected:
                 CARBONARA_PRODUCT_IDS = [3, 938, 2108, 2127, 2111]
                 product_ids = CARBONARA_PRODUCT_IDS
                 category = None
@@ -3749,7 +3785,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                 if "keywords" in criteria:
                     del criteria["keywords"]
                 logger.info(
-                    f"🔒 Tool {tool_name}: Carbonara request detected in user message: '{user_message}'. "
+                    f"🔒 Tool {tool_name}: Carbonara request detected (source: {detection_source}). "
                     f"Automatically setting product_ids to {CARBONARA_PRODUCT_IDS} and executing hardcoded query."
                 )
             
