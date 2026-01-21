@@ -16,6 +16,9 @@ function App() {
   const [selectedPlace, setSelectedPlace] = React.useState(null);
 
   const handleAddToCart = (place) => {
+
+    logger.info("[gdo-list] Adding to cart", place);
+
     addToCart({
       id: place.id,
       name: place.name,
