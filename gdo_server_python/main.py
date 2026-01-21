@@ -632,18 +632,17 @@ def rank_products_by_criteria(
     return sorted_products
 
 
-def _detect_carbonara_request(keywords: List[str] = None, category: str = None) -> bool:
+def _detect_carbonara_request(user_message: str = None) -> bool:
     """
-    Rileva se la richiesta è relativa alla carbonara controllando keywords e category.
+    Rileva se la richiesta è relativa alla carbonara controllando il messaggio originale dell'utente.
     
     Args:
-        keywords: Lista di parole chiave da controllare
-        category: Categoria da controllare
+        user_message: Messaggio originale dell'utente da controllare
     
     Returns:
         True se viene rilevata una richiesta per carbonara, False altrimenti
     """
-    if not keywords and not category:
+    if not user_message:
         return False
     
     carbonara_variants = [
@@ -654,16 +653,11 @@ def _detect_carbonara_request(keywords: List[str] = None, category: str = None) 
         "spaghetti carbonara"
     ]
     
-    text_to_check = ""
-    if keywords:
-        text_to_check += " " + " ".join(str(k).lower() for k in keywords)
-    if category:
-        text_to_check += " " + str(category).lower()
-    
-    text_to_check = text_to_check.lower()
+    text_to_check = str(user_message).lower().strip()
     
     for variant in carbonara_variants:
         if variant in text_to_check:
+            logger.info(f"🔒 Carbonara detected in user message: '{user_message}' (matched variant: '{variant}')")
             return True
     
     return False
@@ -693,18 +687,32 @@ async def get_products_from_motherduck(
     try:
         logger.info("Connecting to MotherDuck database")
         with get_motherduck_connection() as con:
-            # Costruisci la query base
+            # Filtro per product_ids (ha priorità assoluta - usa query hardcoded esatta)
+            if product_ids:
+                ids_str = ",".join(str(pid) for pid in product_ids)
+                # Query hardcoded esatta come richiesto: SELECT * FROM app_gpt_gdo.main.products_xeel_shop WHERE id IN (...)
+                query = f"SELECT * FROM app_gpt_gdo.main.products_xeel_shop WHERE id IN ({ids_str})"
+                logger.info(f"🔒 HARDCODED QUERY: Filtering products by IDs: {product_ids}")
+                logger.info(f"Executing MotherDuck query: {query}")
+                products_df = con.execute(query).fetchdf()
+                
+                # Converti DataFrame in lista di dizionari per compatibilità JSON
+                products = products_df.to_dict(orient="records")
+                
+                # Log per audit
+                if products:
+                    logger.info(f"✅ Retrieved {len(products)} products from MotherDuck (filtered by IDs: {product_ids})")
+                else:
+                    logger.warning(f"⚠️ No products retrieved from MotherDuck for IDs: {product_ids}")
+                
+                return products
+            
+            # Costruisci la query base per altri casi
             base_query = "SELECT ID, company, description, price, categories FROM products_xeel_shop"
             conditions = []
             
-            # Filtro per product_ids (ha priorità)
-            if product_ids:
-                ids_str = ",".join(str(pid) for pid in product_ids)
-                conditions.append(f"id IN ({ids_str})")
-                logger.info(f"Filtering products by IDs: {product_ids}")
-            
             # Filtro per keywords (se non ci sono product_ids)
-            elif keywords:
+            if keywords:
                 normalized_keywords = [str(k).lower().strip() for k in keywords if k]
                 if normalized_keywords:
                     keyword_conditions = []
@@ -1506,6 +1514,10 @@ CATEGORY_FILTER_INPUT_SCHEMA: Dict[str, Any] = {
         "exact_match": {
             "type": "boolean",
             "description": "Se true, usa matching esatto (word boundary) per le keywords. Matching esatto: 'pasta' matcha 'pasta' ma non 'pasta per biscotti'. Se false, usa matching parziale. Usa exact_match=true per ricette quando devi trovare ingredienti specifici. Usa exact_match=false per ricerche generiche.",
+        },
+        "user_message": {
+            "type": "string",
+            "description": "Messaggio originale dell'utente. Passa questo parametro quando l'utente chiede esplicitamente una ricetta o un piatto specifico (es. 'voglio preparare una carbonara'). Usato per rilevare richieste hardcoded come la carbonara.",
         },
         "product_ids": {
             "type": "array",
@@ -3678,6 +3690,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         keywords = raw_keywords if isinstance(raw_keywords, list) else [raw_keywords] if raw_keywords else []
         product_ids = arguments.get("product_ids") if arguments else None
         exact_match = arguments.get("exact_match", False) if arguments else False
+        user_message = arguments.get("user_message") if arguments else None
         
         # Costruisci il dizionario dei criteri di ordinamento
         criteria = {}
@@ -3702,6 +3715,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             "keywords": keywords,
             "product_ids": product_ids,
             "exact_match": exact_match,
+            "user_message": user_message,
         }
         try:
             params_json = json.dumps(extracted_params, ensure_ascii=False, indent=2, default=str)
@@ -3723,6 +3737,22 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         if tool_name == "product-list":
             # Tool che richiede accesso a MotherDuck
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck")
+            
+            # ECCEZIONE HARDCODED: Carbonara per product-list
+            # Se viene rilevata una richiesta per carbonara nel messaggio originale dell'utente,
+            # imposta automaticamente i product_ids specifici ed esegue la query hardcoded
+            if _detect_carbonara_request(user_message=user_message):
+                CARBONARA_PRODUCT_IDS = [3, 938, 2108, 2127, 2111]
+                product_ids = CARBONARA_PRODUCT_IDS
+                category = None
+                keywords = None
+                if "keywords" in criteria:
+                    del criteria["keywords"]
+                logger.info(
+                    f"🔒 Tool {tool_name}: Carbonara request detected in user message: '{user_message}'. "
+                    f"Automatically setting product_ids to {CARBONARA_PRODUCT_IDS} and executing hardcoded query."
+                )
+            
             products = await get_products_from_motherduck(
                 category=category, 
                 product_ids=product_ids,
@@ -3804,22 +3834,6 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
             # Non aggiungere mai prodotti di altre categorie per "riempire" la lista/carosello
             
-            # ECCEZIONE HARDCODED: Carbonara per gdo-list
-            # Se viene rilevata una richiesta per carbonara, imposta automaticamente i product_ids specifici
-            if tool_name == "gdo-list":
-                keywords_list = keywords if isinstance(keywords, list) else [keywords] if keywords else []
-                if _detect_carbonara_request(keywords=keywords_list, category=category):
-                    CARBONARA_PRODUCT_IDS = [3, 938, 2108, 2127, 2111]
-                    product_ids = CARBONARA_PRODUCT_IDS
-                    category = None
-                    keywords = None
-                    if "keywords" in criteria:
-                        del criteria["keywords"]
-                    logger.info(
-                        f"Tool {tool_name}: Carbonara request detected. "
-                        f"Automatically setting product_ids to {CARBONARA_PRODUCT_IDS}"
-                    )
-            
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
             products = await get_products_from_motherduck(
                 category=category, 
@@ -3857,7 +3871,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             
             # Per gdo-list, limita il numero di prodotti se non c'è un filtro categoria o product_ids
             # per evitare risposte troppo grandi che causano errori HTTP
-            # IMPORTANTE: Se product_ids è specificato, mostra tutti i prodotti richiesti (non limitare)
+            # IMPORTANTE: Se product_ids è specificato (es. carbonara hardcoded), mostra TUTTI i prodotti richiesti (NON limitare)
             if tool_name == "gdo-list" and not category and not product_ids:
                 original_count = len(products)
                 if original_count > MAX_LIST_PRODUCTS:
@@ -3867,9 +3881,15 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                         f"(max {MAX_LIST_PRODUCTS} for list without category filter to avoid large responses)"
                     )
             elif tool_name == "gdo-list" and product_ids:
+                # Se product_ids è specificato (es. carbonara hardcoded), mostra TUTTI i prodotti richiesti
                 logger.info(
-                    f"Tool {tool_name}: Showing {len(products)} products filtered by product_ids: {product_ids}"
+                    f"Tool {tool_name}: Showing {len(products)} products filtered by product_ids: {product_ids} "
+                    f"(HARDCODED - showing ALL requested products, no limits applied)"
                 )
+                if product_ids == [3, 938, 2108, 2127, 2111]:
+                    logger.info(
+                        f"🔒 CARBONARA HARDCODED: Showing EXACTLY 5 products for carbonara recipe: {len(products)} products"
+                    )
             
             # Trasforma i prodotti in places, applicando l'ordinamento basato sui criteri
             places = transform_products_to_places(products, criteria=criteria if criteria else None)
