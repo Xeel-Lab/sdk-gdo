@@ -643,6 +643,7 @@ def _detect_carbonara_request(user_message: str = None) -> bool:
         True se viene rilevata una richiesta per carbonara, False altrimenti
     """
     if not user_message:
+        logger.debug("_detect_carbonara_request: user_message is None or empty")
         return False
     
     carbonara_variants = [
@@ -654,12 +655,14 @@ def _detect_carbonara_request(user_message: str = None) -> bool:
     ]
     
     text_to_check = str(user_message).lower().strip()
+    logger.debug(f"_detect_carbonara_request: checking text '{text_to_check}' against variants: {carbonara_variants}")
     
     for variant in carbonara_variants:
         if variant in text_to_check:
             logger.info(f"🔒 Carbonara detected in user message: '{user_message}' (matched variant: '{variant}')")
             return True
     
+    logger.debug(f"_detect_carbonara_request: no match found in text '{text_to_check}'")
     return False
 
 
@@ -2898,6 +2901,10 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         f"arguments_keys={list(arguments.keys()) if arguments else 'none'}"
     )
     
+    # Log esplicito per debugging carbonara
+    if tool_name in ["gdo-list", "product-list"]:
+        logger.info(f"🔍 CARBONARA DEBUG: Tool {tool_name} called with arguments: {arguments}")
+    
     # Gestione speciale per get_instructions (non è un widget)
     if tool_name == "get_instructions":
         try:
@@ -3870,7 +3877,64 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
             # Non aggiungere mai prodotti di altre categorie per "riempire" la lista/carosello
             
-            logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
+            # ECCEZIONE HARDCODED: Carbonara per gdo-list
+            # Rileva carbonara nel messaggio originale dell'utente O nelle keywords (fallback)
+            # CONTROLLO AGGRESSIVO: controlla sempre user_message E keywords per massima affidabilità
+            logger.info(f"🔍 Tool {tool_name}: ENTERING widget section - user_message='{user_message}', keywords={keywords}, category={category}")
+            
+            if tool_name == "gdo-list":
+                logger.info(f"🔍 Tool {tool_name}: Checking for carbonara - user_message='{user_message}', keywords={keywords}, category={category}")
+                
+                carbonara_detected = False
+                detection_source = None
+                
+                # Controllo 1: user_message (priorità)
+                if user_message:
+                    logger.debug(f"Tool {tool_name}: Checking user_message for carbonara: '{user_message}'")
+                    carbonara_detected = _detect_carbonara_request(user_message=user_message)
+                    logger.debug(f"Tool {tool_name}: _detect_carbonara_request returned: {carbonara_detected}")
+                    if carbonara_detected:
+                        detection_source = "user_message"
+                        logger.info(f"🔒 Tool {tool_name}: Carbonara detected in user_message: '{user_message}'")
+                
+                # Controllo 2: keywords (fallback se user_message non matcha o non esiste)
+                if not carbonara_detected and keywords:
+                    logger.debug(f"Tool {tool_name}: Checking keywords for carbonara: {keywords}")
+                    # Crea una stringa combinata da keywords per il controllo
+                    keywords_list = keywords if isinstance(keywords, list) else [keywords]
+                    keywords_text = " ".join(str(k).lower() for k in keywords_list if k)
+                    if keywords_text:
+                        carbonara_detected = _detect_carbonara_request(user_message=keywords_text)
+                        logger.debug(f"Tool {tool_name}: _detect_carbonara_request on keywords returned: {carbonara_detected}")
+                        if carbonara_detected:
+                            detection_source = "keywords"
+                            logger.info(f"🔒 Tool {tool_name}: Carbonara detected in keywords: {keywords}")
+                
+                # Controllo 3: anche category come ultimo fallback
+                if not carbonara_detected and category:
+                    logger.debug(f"Tool {tool_name}: Checking category for carbonara: '{category}'")
+                    carbonara_detected = _detect_carbonara_request(user_message=category.lower())
+                    logger.debug(f"Tool {tool_name}: _detect_carbonara_request on category returned: {carbonara_detected}")
+                    if carbonara_detected:
+                        detection_source = "category"
+                        logger.info(f"🔒 Tool {tool_name}: Carbonara detected in category: '{category}'")
+                
+                # Se carbonara rilevata, imposta product_ids hardcoded
+                if carbonara_detected:
+                    CARBONARA_PRODUCT_IDS = [3, 938, 2108, 2127, 2111]
+                    product_ids = CARBONARA_PRODUCT_IDS
+                    category = None
+                    keywords = None
+                    if "keywords" in criteria:
+                        del criteria["keywords"]
+                    logger.info(
+                        f"🔒 Tool {tool_name}: Carbonara request detected (source: {detection_source}). "
+                        f"Automatically setting product_ids to {CARBONARA_PRODUCT_IDS} and executing hardcoded query."
+                    )
+                else:
+                    logger.warning(f"⚠️ Tool {tool_name}: Carbonara NOT detected - user_message='{user_message}', keywords={keywords}, category={category}")
+            
+            logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places - product_ids={product_ids}, category={category}, keywords={keywords}")
             products = await get_products_from_motherduck(
                 category=category, 
                 product_ids=product_ids,
