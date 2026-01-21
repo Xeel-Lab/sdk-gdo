@@ -20,6 +20,7 @@ import uuid
 import logging
 import duckdb
 import re
+import time
 from datetime import datetime
 from dotenv import load_dotenv
 from pathlib import Path
@@ -86,6 +87,16 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 import httpx
 import stripe
 from urllib.parse import urlparse, urlencode
+import atexit
+import signal
+
+# Import ngrok SDK ufficiale solo se disponibile (opzionale per Render)
+try:
+    import ngrok
+    NGROK_AVAILABLE = True
+except ImportError:
+    NGROK_AVAILABLE = False
+    logger.warning("ngrok SDK not available. Ngrok will not be started automatically.")
 
 
 stripe.api_key = os.getenv("STRIPE_SECRET_KEY", "").strip()
@@ -1164,6 +1175,116 @@ def _transport_security_settings() -> TransportSecuritySettings:
     )
 
 
+class StaticFileMiddleware:
+    """
+    Middleware ASGI che intercetta le richieste per file statici PRIMA di FastMCP.
+    Questo garantisce che i file statici vengano serviti con il MIME type corretto
+    e che gli errori 404 restituiscano text/plain invece di HTML.
+    """
+    
+    def __init__(self, app: ASGIApp):
+        self.app = app
+    
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+        
+        path = scope.get("path", "")
+        
+        # Intercetta solo richieste per file statici
+        if path.startswith("/assets/") or path.startswith("/static/"):
+            # Estrai il nome del file dal path
+            if path.startswith("/static/"):
+                filename = path.replace("/static/", "")
+            elif path.startswith("/assets/"):
+                filename = path.replace("/assets/", "")
+            else:
+                await self.app(scope, receive, send)
+                return
+            
+            file_path = ASSETS_DIR / filename
+            
+            # Verifica che il file esista
+            if not file_path.exists() or not file_path.is_file():
+                # Restituisci 404 con MIME type corretto (non HTML)
+                media_type = "application/javascript" if filename.endswith(".js") else "text/plain"
+                await send({
+                    "type": "http.response.start",
+                    "status": 404,
+                    "headers": [
+                        (b"content-type", media_type.encode("utf-8")),
+                    ],
+                })
+                await send({
+                    "type": "http.response.body",
+                    "body": b"File not found",
+                })
+                return
+            
+            # Security check: verifica che il file sia dentro ASSETS_DIR
+            try:
+                file_path.resolve().relative_to(ASSETS_DIR.resolve())
+            except ValueError:
+                await send({
+                    "type": "http.response.start",
+                    "status": 403,
+                    "headers": [
+                        (b"content-type", b"text/plain"),
+                    ],
+                })
+                await send({
+                    "type": "http.response.body",
+                    "body": b"Forbidden",
+                })
+                return
+            
+            # Determina MIME type
+            if filename.endswith(".js"):
+                media_type = "application/javascript"
+            elif filename.endswith(".css"):
+                media_type = "text/css"
+            elif filename.endswith(".map"):
+                media_type = "application/json"
+            else:
+                media_type = "application/octet-stream"
+            
+            # Leggi e servi il file
+            try:
+                content = file_path.read_bytes()
+                logger.info(f"StaticFileMiddleware: Serving {filename} ({len(content)} bytes, {media_type})")
+                await send({
+                    "type": "http.response.start",
+                    "status": 200,
+                    "headers": [
+                        (b"content-type", media_type.encode("utf-8")),
+                        (b"cache-control", b"public, max-age=3600"),
+                    ],
+                })
+                await send({
+                    "type": "http.response.body",
+                    "body": content,
+                })
+                return
+            except Exception as e:
+                logger.error(f"StaticFileMiddleware: Error serving {filename}: {e}", exc_info=True)
+                await send({
+                    "type": "http.response.start",
+                    "status": 500,
+                    "headers": [
+                        (b"content-type", b"text/plain"),
+                    ],
+                })
+                await send({
+                    "type": "http.response.body",
+                    "body": b"Internal Server Error",
+                })
+                return
+        
+        # Per tutte le altre richieste, passa all'app
+        await self.app(scope, receive, send)
+
+
 class SSEBypassMiddleware:
     """
     Middleware ASGI personalizzato per bypassare completamente le richieste SSE/messages.
@@ -1177,11 +1298,16 @@ class SSEBypassMiddleware:
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] == "http":
             path = scope.get("path", "")
+            # Bypass middleware processing for SSE/MCP endpoints
             if (
                 path.startswith("/mcp")
                 or path == "/sse"
                 or path.startswith("/messages")
             ):
+                await self.app(scope, receive, send)
+                return
+            # Also bypass for static assets to ensure correct MIME types
+            if path.startswith("/assets/") or path.startswith("/static/"):
                 await self.app(scope, receive, send)
                 return
         
@@ -1209,6 +1335,37 @@ class CORSMiddleware:
         # Per risposte SSE, passa direttamente senza modificare headers
         if path.startswith("/mcp") or path == "/sse" or path.startswith("/messages"):
             await self.app(scope, receive, send)
+            return
+        
+        # Per file statici, aggiungi solo header CORS senza modificare altri header (preserva MIME type)
+        if path.startswith("/assets/") or path.startswith("/static/"):
+            origin = None
+            for header_name, header_value in scope.get("headers", []):
+                if header_name == b"origin":
+                    origin = header_value.decode("utf-8")
+                    break
+            
+            allowed_origins = _split_env_list(os.getenv("MCP_ALLOWED_ORIGINS"))
+            cors_origin = "*"
+            if allowed_origins:
+                if origin and origin in allowed_origins:
+                    cors_origin = origin
+                elif origin:
+                    cors_origin = origin
+            elif origin:
+                cors_origin = origin
+            
+            async def send_wrapper(message):
+                if message["type"] == "http.response.start":
+                    headers = list(message.get("headers", []))
+                    # Aggiungi solo header CORS, non modificare Content-Type
+                    headers.append((b"access-control-allow-origin", cors_origin.encode("utf-8")))
+                    headers.append((b"access-control-allow-methods", b"GET, OPTIONS"))
+                    headers.append((b"access-control-allow-headers", b"Content-Type"))
+                    message["headers"] = headers
+                await send(message)
+            
+            await self.app(scope, receive, send_wrapper)
             return
         
         # Gestisci richieste OPTIONS (preflight)
@@ -1297,6 +1454,11 @@ class CSPMiddleware:
         
         # Per risposte SSE/streaming, passa direttamente senza modificare headers
         if path.startswith("/mcp") or path == "/sse" or path.startswith("/messages"):
+            await self.app(scope, receive, send)
+            return
+        
+        # Per file statici, passa direttamente per evitare problemi con MIME types
+        if path.startswith("/assets/") or path.startswith("/static/"):
             await self.app(scope, receive, send)
             return
         
@@ -2837,41 +2999,67 @@ async def _handle_read_resource(req: types.ReadResourceRequest) -> types.ServerR
     html_content = widget.html
     import re
     
+    # Ricarica BASE_URL dal file .env ad ogni richiesta per supportare aggiornamenti dinamici
+    # (utile quando ngrok aggiorna il file .env dopo l'avvio del server)
+    if env_path and env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=True)
+    
     base_url = os.getenv("BASE_URL", "").rstrip("/")
     
     def fix_asset_path(match):
-        attr, path = match.group(1), match.group(2)
-        # Remove leading slash if present, ensure assets/ prefix
-        path = path.lstrip('/')
-        if not path.startswith('assets/'):
-            path = f'assets/{path}'
+        attr = match.group(1)
+        # Il gruppo 2 può essere "assets/" o None, il gruppo 3 è il nome del file
+        has_assets_prefix = match.group(2) is not None
+        filename = match.group(3)
+        
+        # Assicurati che il path abbia il prefisso assets/
+        if has_assets_prefix:
+            path = f'assets/{filename}'
+        else:
+            path = f'assets/{filename}'
         
         if base_url:
             return f'{attr}="{base_url}/{path}"'
         else:
             return f'{attr}="/{path}"'
     
-    # Pattern 1: localhost URLs (with or without assets/)
+    # Pattern 1: Any full HTTP/HTTPS URLs (ngrok, localhost, etc.)
+    # Cattura: https://xxx.ngrok-free.dev/assets/file.js o http://localhost:4444/assets/file.js
+    # Questo pattern deve essere il primo per catturare tutti gli URL completi
+    def fix_full_url(match):
+        attr = match.group(1)
+        url = match.group(2)
+        has_assets_prefix = match.group(3) is not None
+        filename = match.group(4)
+        
+        # Usa /static/ invece di /assets/ per evitare conflitti con FastMCP
+        path = f'static/{filename}'
+        
+        if base_url:
+            return f'{attr}="{base_url}/{path}"'
+        else:
+            return f'{attr}="/{path}"'
+    
     html_content = re.sub(
-        r'(src|href)="http://localhost:\d+/([^"]+\.(js|css))"',
-        fix_asset_path,
+        r'(src|href)="(https?://[^/]+/(assets/|static/)?([^"]+\.(js|css)))"',
+        fix_full_url,
         html_content
     )
     
-    # Pattern 2: Absolute root paths
+    # Pattern 2: localhost URLs (con o senza assets/static/) - per retrocompatibilità
     html_content = re.sub(
-        r'(src|href)="/([^"]+\.(js|css))"',
-        fix_asset_path,
+        r'(src|href)="http://localhost:\d+/(assets/|static/)?([^"]+\.(js|css))"',
+        lambda m: f'{m.group(1)}="{base_url}/static/{m.group(3)}"' if base_url else f'{m.group(1)}="/static/{m.group(3)}"',
         html_content
     )
     
-    # Pattern 3: BASE_URL paths (if set)
-    if base_url:
-        html_content = re.sub(
-            rf'(src|href)="{re.escape(base_url)}/(?!assets/)([^"]+\.(js|css))"',
-            fix_asset_path,
-            html_content
-        )
+    # Pattern 3: Absolute root paths (senza localhost)
+    # Cattura: /assets/file.js, /static/file.js o /file.js
+    html_content = re.sub(
+        r'(src|href)="/(assets/|static/)?([^"]+\.(js|css))"',
+        lambda m: f'{m.group(1)}="{base_url}/static/{m.group(3)}"' if base_url else f'{m.group(1)}="/static/{m.group(3)}"',
+        html_content
+    )
 
     # Inject server base URL for proxy configuration
     # This allows the frontend to know the server URL for proxy requests
@@ -4227,10 +4415,10 @@ async def root_handler(request):
         <strong>GET /</strong> - This page (server information)
     </div>
     <div class="endpoint">
-        <strong>GET /sse</strong> - SSE stream for MCP protocol (main endpoint)
+        <strong>GET /sse</strong> - SSE stream for MCP protocol (main endpoint for ChatGPT apps SDK)
     </div>
     <div class="endpoint">
-        <strong>GET /mcp</strong> - SSE stream for MCP protocol (internal, redirected from /sse)
+        <strong>GET /mcp</strong> - SSE stream for MCP protocol (alternative endpoint, may not work with ChatGPT apps SDK)
     </div>
     <div class="endpoint">
         <strong>GET /assets/*</strong> - Static files (HTML, JS, CSS) from the assets directory
@@ -4256,25 +4444,168 @@ async def health_handler(request):
     """Health check endpoint for monitoring and load balancers."""
     return Response(content="OK", status_code=200, media_type="text/plain")
 
+# Config check endpoint - returns current BASE_URL and asset availability
+async def config_handler(request: Request):
+    """Returns current configuration for debugging."""
+    if env_path and env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=True)
+    
+    base_url = os.getenv("BASE_URL", "")
+    
+    # Se ngrok è attivo, ottieni l'URL dal tunnel
+    public_url = base_url
+    if ngrok_tunnel and NGROK_AVAILABLE:
+        try:
+            public_url = str(ngrok_tunnel.url())
+        except:
+            pass
+    
+    assets_dir_exists = ASSETS_DIR.exists()
+    js_files = list(ASSETS_DIR.glob("*.js")) if assets_dir_exists else []
+    css_files = list(ASSETS_DIR.glob("*.css")) if assets_dir_exists else []
+    
+    config_info = {
+        "base_url": base_url,
+        "public_url": public_url if public_url else None,
+        "mcp_endpoint": f"{public_url}/sse" if public_url else None,
+        "assets_dir": str(ASSETS_DIR),
+        "assets_dir_exists": assets_dir_exists,
+        "js_files_count": len(js_files),
+        "css_files_count": len(css_files),
+        "sample_js": js_files[0].name if js_files else None,
+        "sample_css": css_files[0].name if css_files else None,
+        "ngrok_active": ngrok_tunnel is not None and NGROK_AVAILABLE,
+    }
+    
+    return JSONResponse(content=config_info)
+
+# Public URL endpoint - returns the public URL for easy access
+async def public_url_handler(request: Request):
+    """Returns the public URL of the server (ngrok URL if available, otherwise BASE_URL)."""
+    if env_path and env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=True)
+    
+    base_url = os.getenv("BASE_URL", "")
+    
+    # Se ngrok è attivo, ottieni l'URL dal tunnel
+    public_url = base_url
+    if ngrok_tunnel and NGROK_AVAILABLE:
+        try:
+            public_url = str(ngrok_tunnel.url())
+        except:
+            pass
+    
+    if not public_url:
+        return JSONResponse(
+            content={"error": "No public URL available. Ngrok may not be configured or running."},
+            status_code=404
+        )
+    
+    return JSONResponse(content={
+        "public_url": public_url,
+        "mcp_endpoint": f"{public_url}/sse",
+        "base_url": base_url,
+        "ngrok_active": ngrok_tunnel is not None and NGROK_AVAILABLE,
+    })
+
+# Handler esplicito per file statici (JS, CSS) per garantire MIME type corretti
+# Usa /static/ invece di /assets/ per evitare conflitti con FastMCP routing
+async def static_file_handler(request: Request):
+    """Serve static files from assets directory with correct MIME types."""
+    path = request.url.path
+    logger.debug(f"Static file handler called for path: {path}")
+    
+    # Supporta sia /static/ che /assets/ per retrocompatibilità
+    if path.startswith("/static/"):
+        filename = path.replace("/static/", "")
+    elif path.startswith("/assets/"):
+        filename = path.replace("/assets/", "")
+    else:
+        logger.warning(f"Path does not start with /static/ or /assets/: {path}")
+        return Response(content="Not Found", status_code=404, media_type="text/plain")
+    
+    file_path = ASSETS_DIR / filename
+    
+    logger.debug(f"Looking for file: {file_path}")
+    
+    # Verifica che il file esista e sia nella directory assets (security check)
+    if not file_path.exists():
+        logger.warning(f"File not found: {file_path}")
+        return Response(content="File not found", status_code=404, media_type="text/plain")
+    
+    if not file_path.is_file():
+        logger.warning(f"Path is not a file: {file_path}")
+        return Response(content="Not a file", status_code=404, media_type="text/plain")
+    
+    # Security check: verifica che il file sia dentro ASSETS_DIR
+    try:
+        file_path.resolve().relative_to(ASSETS_DIR.resolve())
+    except ValueError:
+        logger.error(f"Security violation: file outside assets directory: {file_path}")
+        return Response(content="Forbidden", status_code=403, media_type="text/plain")
+    
+    # Determina MIME type in base all'estensione
+    if filename.endswith(".js"):
+        media_type = "application/javascript"
+    elif filename.endswith(".css"):
+        media_type = "text/css"
+    elif filename.endswith(".map"):
+        media_type = "application/json"
+    else:
+        media_type = "application/octet-stream"
+    
+    # Leggi il file e restituiscilo
+    try:
+        content = file_path.read_bytes()
+        logger.info(f"Serving static file: {filename} ({len(content)} bytes, {media_type})")
+        return Response(
+            content=content,
+            status_code=200,
+            media_type=media_type,
+            headers={
+                "Cache-Control": "public, max-age=3600",
+            }
+        )
+    except Exception as e:
+        logger.error(f"Error serving static file {filename}: {e}", exc_info=True)
+        return Response(content="Internal Server Error", status_code=500, media_type="text/plain")
+
 # Serve static files from assets directory
 if ASSETS_DIR.exists():
-    # Serve from /assets/ for explicit asset access
-    app.mount("/assets", StaticFiles(directory=str(ASSETS_DIR), html=False), name="assets")
-    logger.info(f"Static files available at /assets/ (serving from {ASSETS_DIR})")
+    # Aggiungi handler esplicito per file statici PRIMA di altre route
+    # Usa /static/ come path principale per evitare conflitti con FastMCP
+    # Mantieni /assets/ per retrocompatibilità
+    app.add_route("/static/{file_path:path}", static_file_handler, methods=["GET"])
+    app.add_route("/assets/{file_path:path}", static_file_handler, methods=["GET"])
+    logger.info(f"Static file handler registered for /static/ and /assets/ (serving from {ASSETS_DIR})")
+    
+    # Log available files for debugging
+    js_files = list(ASSETS_DIR.glob("*.js"))
+    css_files = list(ASSETS_DIR.glob("*.css"))
+    logger.info(f"Available JS files: {[f.name for f in js_files]}")
+    logger.info(f"Available CSS files: {[f.name for f in css_files]}")
 else:
     logger.warning(f"Assets directory not found at {ASSETS_DIR}. Static files will not be served.")
 
 # Add routes using Starlette's add_route (since sse_app() returns a Starlette app, not FastAPI)
 app.add_route("/", root_handler, methods=["GET"])
 app.add_route("/health", health_handler, methods=["GET"])
+app.add_route("/config", config_handler, methods=["GET"])
+app.add_route("/url", public_url_handler, methods=["GET"])
+app.add_route("/public-url", public_url_handler, methods=["GET"])
 app.add_route("/proxy-image", proxy_image_handler, methods=["GET"])
 app.add_route("/proxy-image", proxy_image_options_handler, methods=["OPTIONS"])
 
+# Nota: FastMCP sse_app() espone automaticamente /sse come endpoint SSE principale
+# ChatGPT apps SDK richiede /sse come endpoint, non /mcp
+# FastMCP può anche esporre /mcp automaticamente, ma per ChatGPT apps SDK usa /sse
+
 # Aggiungi middleware DOPO tutte le configurazioni di route e mount
 # L'ordine è importante: i middleware vengono eseguiti dall'esterno verso l'interno
-# 1. SSEBypassMiddleware (più esterno) - bypassa le richieste SSE prima di tutto
-# 2. CSPMiddleware - aggiunge header CSP
-# 3. CORSMiddleware (più interno) - aggiunge header CORS
+# 1. StaticFileMiddleware (più esterno) - intercetta file statici PRIMA di FastMCP
+# 2. SSEBypassMiddleware - bypassa le richieste SSE prima di tutto
+# 3. CSPMiddleware - aggiunge header CSP
+# 4. CORSMiddleware (più interno) - aggiunge header CORS
 
 # Aggiungi middleware CORS all'app (deve essere prima di CSP)
 # Il middleware CORS permette il caricamento di risorse (JS, CSS) da origini diverse
@@ -4290,6 +4621,217 @@ app = CSPMiddleware(app)
 # gli altri middleware processino il body (che causa errori con risposte SSE)
 app = SSEBypassMiddleware(app)
 
+# Aggiungi middleware per intercettare file statici PRIMA di FastMCP
+# Questo garantisce che i file statici vengano serviti con il MIME type corretto
+# anche se FastMCP non trova una route corrispondente
+app = StaticFileMiddleware(app)
+
+# Variabile globale per il tunnel ngrok
+ngrok_tunnel = None
+
+def start_ngrok_tunnel(port: int) -> str | None:
+    """
+    Avvia un tunnel ngrok per la porta specificata.
+    Restituisce l'URL pubblico del tunnel, o None se ngrok non è disponibile o non configurato.
+    """
+    if not NGROK_AVAILABLE:
+        logger.info("ngrok SDK not available. Skipping ngrok tunnel.")
+        return None
+    
+    # Non avviare ngrok su Render (controlla se siamo in un ambiente di produzione)
+    if os.getenv("RENDER") or os.getenv("RENDER_SERVICE_NAME"):
+        logger.info("Running on Render. Skipping ngrok tunnel.")
+        return None
+    
+    # Controlla se ngrok è già configurato - RICARICA SEMPRE dal .env per essere sicuri
+    if env_path and env_path.exists():
+        load_dotenv(dotenv_path=env_path, override=True)
+    
+    ngrok_auth_token = os.getenv("NGROK_AUTH_TOKEN", "").strip()
+    
+    if not ngrok_auth_token:
+        logger.info("NGROK_AUTH_TOKEN not found. Skipping ngrok tunnel.")
+        logger.info("To enable ngrok, set NGROK_AUTH_TOKEN in your .env file or environment variables.")
+        return None
+    
+    logger.debug(f"NGROK_AUTH_TOKEN found: {ngrok_auth_token[:10]}... (first 10 chars)")
+    
+    try:
+        # Configura ngrok con il token di autenticazione PRIMA di creare il tunnel
+        ngrok.set_auth_token(ngrok_auth_token)
+        logger.debug("ngrok.set_auth_token() called successfully")
+        
+        # Avvia il tunnel usando l'SDK ufficiale
+        global ngrok_tunnel
+        try:
+            # L'SDK ufficiale usa forward() che può essere sincrono o asincrono
+            # Se il loop è già in esecuzione, forward() può restituire un Task
+            import asyncio
+            import concurrent.futures
+            import inspect
+            
+            def create_tunnel_sync(auth_token, port_num):
+                """Crea il tunnel in un thread separato con il token (ngrok.forward() è sincrono)"""
+                # Configura il token prima di creare il tunnel
+                ngrok.set_auth_token(auth_token)
+                # forward() è sincrono e restituisce direttamente un listener
+                listener = ngrok.forward(port_num, schemes=["https"])
+                return listener
+            
+            # Prova prima a chiamare forward() direttamente
+            try:
+                listener = ngrok.forward(port, schemes=["https"])
+                
+                # Se è un Task o coroutine, gestiscilo in un thread separato
+                if inspect.iscoroutine(listener) or (hasattr(listener, '__class__') and 'Task' in str(type(listener))):
+                    logger.debug("ngrok.forward() returned async object, using thread pool")
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(create_tunnel_sync, ngrok_auth_token, port)
+                        listener = future.result(timeout=10.0)
+            except AttributeError as e:
+                # Se fallisce perché è un Task, usa il thread pool
+                if 'url' in str(e) or 'Task' in str(e):
+                    logger.debug("ngrok.forward() returned Task, using thread pool")
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        future = executor.submit(create_tunnel_sync, ngrok_auth_token, port)
+                        listener = future.result(timeout=10.0)
+                else:
+                    raise
+            
+            ngrok_tunnel = listener
+            # Il listener ha un metodo url() che restituisce l'URL pubblico
+            public_url = str(listener.url())
+            logger.debug(f"Ngrok tunnel created successfully: {public_url}")
+        except Exception as connect_error:
+            error_msg = str(connect_error)
+            logger.error(f"Failed to start ngrok tunnel: {error_msg}")
+            raise
+        
+        logger.info(f"Ngrok tunnel started: {public_url}")
+        logger.info(f"Public MCP endpoint: {public_url}/sse")
+        
+        # Stampa anche su stdout per maggiore visibilità
+        print("")
+        print("=" * 70)
+        print(f"NGROK TUNNEL STARTED: {public_url}")
+        print(f"MCP ENDPOINT (for ChatGPT apps SDK): {public_url}/sse")
+        print("=" * 70)
+        print("")
+        
+        # Aggiorna BASE_URL nel file .env se esiste
+        if env_path and env_path.exists():
+            update_env_file(env_path, "BASE_URL", public_url)
+            
+            # Aggiorna anche MCP_ALLOWED_HOSTS e MCP_ALLOWED_ORIGINS
+            ngrok_host = urlparse(public_url).netloc
+            update_env_file(env_path, "MCP_ALLOWED_HOSTS", ngrok_host)
+            
+            allowed_origins = f"{public_url},https://chat.openai.com"
+            update_env_file(env_path, "MCP_ALLOWED_ORIGINS", allowed_origins)
+            
+            # Ricarica le variabili d'ambiente
+            load_dotenv(dotenv_path=env_path, override=True)
+        
+        # Aggiorna anche le variabili d'ambiente del processo
+        os.environ["BASE_URL"] = public_url
+        
+        return public_url
+    except Exception as e:
+        logger.error(f"Failed to start ngrok tunnel: {e}", exc_info=True)
+        return None
+
+def update_env_file(env_path: Path, key: str, value: str):
+    """Aggiorna o aggiunge una variabile nel file .env"""
+    try:
+        lines = []
+        key_found = False
+        
+        if env_path.exists():
+            with open(env_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip().startswith(f"{key}="):
+                        lines.append(f"{key}={value}\n")
+                        key_found = True
+                    else:
+                        lines.append(line)
+        
+        if not key_found:
+            lines.append(f"{key}={value}\n")
+        
+        with open(env_path, "w", encoding="utf-8") as f:
+            f.writelines(lines)
+        
+        logger.debug(f"Updated {key} in .env file")
+    except Exception as e:
+        logger.warning(f"Failed to update {key} in .env file: {e}")
+
+def stop_ngrok_tunnel():
+    """Chiude il tunnel ngrok se è attivo"""
+    global ngrok_tunnel
+    if ngrok_tunnel and NGROK_AVAILABLE:
+        try:
+            ngrok_tunnel.close()
+            logger.info("Ngrok tunnel stopped")
+        except Exception as e:
+            logger.warning(f"Error stopping ngrok tunnel: {e}")
+        finally:
+            ngrok_tunnel = None
+
+# Registra la funzione di cleanup per quando il server si ferma
+atexit.register(stop_ngrok_tunnel)
+
+# Gestisci anche i segnali di terminazione
+def signal_handler(signum, frame):
+    stop_ngrok_tunnel()
+    exit(0)
+
+signal.signal(signal.SIGINT, signal_handler)
+signal.signal(signal.SIGTERM, signal_handler)
+
+# Avvia ngrok automaticamente quando il modulo viene importato (funziona sia con python main.py che con uvicorn)
+# Questo viene eseguito solo se non siamo su Render e se NGROK_AUTH_TOKEN è configurato
+def _auto_start_ngrok():
+    """Avvia ngrok automaticamente se configurato."""
+    # Non avviare su Render
+    if os.getenv("RENDER") or os.getenv("RENDER_SERVICE_NAME"):
+        return
+    
+    # Controlla se ngrok è configurato
+    ngrok_auth_token = os.getenv("NGROK_AUTH_TOKEN")
+    if not ngrok_auth_token:
+        # Prova a leggere dal file .env
+        if env_path and env_path.exists():
+            load_dotenv(dotenv_path=env_path, override=True)
+            ngrok_auth_token = os.getenv("NGROK_AUTH_TOKEN")
+    
+    if not ngrok_auth_token:
+        return
+    
+    # Ottieni la porta dall'ambiente o usa il default
+    port = int(os.getenv("PORT", "8000"))
+    
+    # Avvia ngrok
+    ngrok_url = start_ngrok_tunnel(port)
+    
+    if ngrok_url:
+        print("")
+        print("=" * 70)
+        print("PUBLIC URL (accessible from outside):")
+        print(f"  {ngrok_url}")
+        print("")
+        print("MCP ENDPOINT (for ChatGPT apps SDK):")
+        print(f"  {ngrok_url}/sse")
+        print("")
+        print("You can also check the URL at: http://localhost:8000/url")
+        print("=" * 70)
+        print("")
+        logger.info("=" * 70)
+        logger.info(f"PUBLIC URL: {ngrok_url}")
+        logger.info(f"MCP ENDPOINT: {ngrok_url}/sse")
+        logger.info("=" * 70)
+
+# Avvia ngrok automaticamente quando il modulo viene importato
+_auto_start_ngrok()
 
 if __name__ == "__main__":
     """
@@ -4299,9 +4841,37 @@ if __name__ == "__main__":
     port = int(os.getenv("PORT", "8000"))
     host = os.getenv("HOST", "127.0.0.1")
     
+    # Avvia ngrok se disponibile e configurato (solo in locale)
+    ngrok_url = start_ngrok_tunnel(port)
+    
     logger.info(f"Starting server on {host}:{port}")
     logger.info(f"Access the server at http://{host}:{port}")
-    logger.info(f"MCP endpoint: http://{host}:{port}/mcp")
+    logger.info(f"MCP endpoint: http://{host}:{port}/sse")
     
-    uvicorn.run(app, host=host, port=port)
+    if ngrok_url:
+        print("")
+        print("=" * 70)
+        print("PUBLIC URL (accessible from outside):")
+        print(f"  {ngrok_url}")
+        print("")
+        print("MCP ENDPOINT (for ChatGPT apps SDK):")
+        print(f"  {ngrok_url}/sse")
+        print("")
+        print("You can also check the URL at: http://localhost:8000/url")
+        print("=" * 70)
+        print("")
+        logger.info("=" * 70)
+        logger.info(f"PUBLIC URL: {ngrok_url}")
+        logger.info(f"MCP ENDPOINT: {ngrok_url}/sse")
+        logger.info("=" * 70)
+    else:
+        logger.info("")
+        logger.info("Note: No public URL available. Ngrok is not configured or running.")
+        logger.info("To enable ngrok, set NGROK_AUTH_TOKEN in your .env file.")
+        logger.info("")
+    
+    try:
+        uvicorn.run(app, host=host, port=port)
+    finally:
+        stop_ngrok_tunnel()
 

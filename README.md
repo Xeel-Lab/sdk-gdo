@@ -231,6 +231,18 @@ For example: `https://<custom_endpoint>.ngrok-free.app/mcp`
 > export MCP_ALLOWED_ORIGINS="https://<custom_endpoint>.ngrok-free.app"
 > ```
 
+## Local Development Setup
+
+For detailed instructions on setting up local development with debugging support, see [docs/LOCAL_DEVELOPMENT.md](docs/LOCAL_DEVELOPMENT.md).
+
+Quick start:
+1. Copy `.env.template` to `.env` and configure with your values: `Copy-Item .env.template .env`
+2. Edit `.env` file with your real values (especially `MOTHERDUCK_TOKEN` and `NGROK_AUTH_TOKEN`)
+3. Run the scripts in order:
+   - `.\scripts\build.ps1` - Build assets
+   - `.\scripts\start.ps1` - Start Python server (ngrok starts automatically)
+4. Add the ngrok URL shown in the server output to ChatGPT as a connector (Settings → Connectors → Add → URL: `https://your-ngrok-url.ngrok-free.app/mcp`)
+
 Once you add a connector, you can use it in ChatGPT conversations.
 
 You can add your app to the conversation context by selecting it in the "More" options.

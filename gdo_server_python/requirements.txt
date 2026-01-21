@@ -7,3 +7,4 @@ pandas>=2.0.0  # Richiesto da DuckDB per fetchdf() (conversione risultati in Dat
 httpx>=0.27.0  # Per proxy immagini (risolve problema ORB)
 python-dotenv>=1.0.0  # Per caricare variabili d'ambiente da .env
 stripe>=12.0.0  # Checkout Session per demo pagamenti
+ngrok>=1.0.0  # Per avviare ngrok programmaticamente (SDK ufficiale ngrok-python)

@@ -1,0 +1,24 @@
+# Configurazione esempio per ngrok
+# Copia questo file come ngrok.yml e configura con le tue credenziali ngrok aziendali
+
+version: 3
+agent:
+  authtoken: 38Yx6zSFqj4V0ZxluXDkKvuJGKc_29QovVET9KJ5nbYTHbs5a
+  
+# Configurazione tunnel per il server GDO
+tunnels:
+  gdo-server:
+    proto: http
+    addr: 8000
+    # Opzionale: dominio personalizzato (se disponibile nel piano ngrok aziendale)
+    # domain: your-custom-domain.ngrok.io
+    # Opzionale: bind TLS
+    # bind_tls: true
+
+# Opzionale: configurazione regionale
+# region: eu
+
+# Opcionale: header personalizzati
+# request_header:
+#   add:
+#     - "X-Custom-Header: value"

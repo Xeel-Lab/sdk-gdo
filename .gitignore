@@ -17,6 +17,7 @@ yarn-error.log
 .eslintcache
 
 # Environment files
+.env
 .env.local
 .env.*.local
 !.env.example
@@ -35,3 +36,4 @@ __pycache__/
 # Ruff
 .ruff_cache/
 /dataset
+/assets

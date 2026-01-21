@@ -278,11 +278,10 @@ async function main() {
 
     console.log("new hash: ", h);
 
-    const defaultBaseUrl = "http://localhost:4444";
-    const baseUrlCandidate = process.env.BASE_URL?.trim() ?? "";
-    const baseUrlRaw = baseUrlCandidate.length > 0 ? baseUrlCandidate : defaultBaseUrl;
-    const normalizedBaseUrl = baseUrlRaw.replace(/\/+$/, "") || defaultBaseUrl;
-    console.log(`Using BASE_URL ${normalizedBaseUrl} for generated HTML`);
+    // Always use localhost for build - the server will rewrite URLs with BASE_URL at runtime
+    // This ensures URLs are always rewritten correctly even if BASE_URL changes
+    const normalizedBaseUrl = "http://localhost:4444";
+    console.log(`Using ${normalizedBaseUrl} for generated HTML (server will rewrite with BASE_URL at runtime)`);
 
     for (const name of builtNames) {
       const dir = outDir;
