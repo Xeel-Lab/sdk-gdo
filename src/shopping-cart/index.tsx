@@ -19,43 +19,64 @@ function App() {
   // IMPORTANTE: shopping-cart usa useCart che gestisce il carrello condiviso tramite la chiave specifica "sharedCartItems"
   // Questo garantisce che il carrello mostri SOLO i prodotti aggiunti tramite i pulsanti "Aggiungi al carrello"
   // Ignora completamente qualsiasi altro dato in widgetState (es. da gdo-shop)
-  const { cartItems, addToCart, removeFromCart, clearCart } = useCart();
+  const { cartItems, addToCart, removeFromCart, clearCart, forceRefresh } = useCart();
   const [selectedItem, setSelectedItem] = useState<CartItem | null>(null);
 
   // Forza un refresh dello stato del carrello quando il componente viene montato
-  // Questo garantisce che vengano letti i prodotti aggiunti da altri widget
+  // Questo garantisce che vengano letti i prodotti aggiunti da altri widget (es. gdo-list)
   useEffect(() => {
     // Leggi direttamente da window.openai.widgetState per essere sicuri di avere lo stato più recente
     const checkAndSync = () => {
       if (typeof window !== "undefined" && window.openai?.widgetState) {
         const widgetState = window.openai.widgetState as Record<string, unknown>;
         const sharedCartItems = widgetState.sharedCartItems as { items?: CartItem[] } | undefined;
-        if (sharedCartItems && Array.isArray(sharedCartItems.items) && sharedCartItems.items.length > 0) {
-          // Se ci sono items nello stato globale ma non nel carrello locale, forza un refresh
-          if (cartItems.length === 0) {
-            // Forza un re-render controllando se lo stato è diverso
-            const globalItemsStr = JSON.stringify(sharedCartItems.items);
-            const localItemsStr = JSON.stringify(cartItems);
-            if (globalItemsStr !== localItemsStr) {
-              // Lo stato globale ha items ma quello locale no
-              // useCart dovrebbe gestirlo automaticamente, ma forziamo un check immediato
-              // triggerando un cambio di stato globale (se necessario)
+        if (sharedCartItems && Array.isArray(sharedCartItems.items)) {
+          // Log per debug
+          if (sharedCartItems.items.length > 0 && cartItems.length === 0) {
+            console.log("[shopping-cart] Found items in global state but local cart is empty, forcing refresh...", {
+              globalItems: sharedCartItems.items.length,
+              localItems: cartItems.length
+            });
+            // Forza un refresh immediato
+            if (forceRefresh) {
+              forceRefresh();
             }
           }
         }
       }
     };
 
-    // Controlla immediatamente al mount
-    checkAndSync();
+    // Forza un refresh immediato al mount
+    if (forceRefresh) {
+      forceRefresh();
+    }
 
-    // Controlla anche dopo un breve delay per catturare eventuali aggiornamenti in corso
-    const timeoutId = setTimeout(checkAndSync, 100);
+    // Controlla immediatamente al mount e più volte per catturare aggiornamenti rapidi
+    checkAndSync();
+    const timeout1 = setTimeout(() => {
+      checkAndSync();
+      if (forceRefresh) forceRefresh();
+    }, 50);
+    const timeout2 = setTimeout(() => {
+      checkAndSync();
+      if (forceRefresh) forceRefresh();
+    }, 150);
+    const timeout3 = setTimeout(() => {
+      checkAndSync();
+      if (forceRefresh) forceRefresh();
+    }, 300);
+    const timeout4 = setTimeout(() => {
+      checkAndSync();
+      if (forceRefresh) forceRefresh();
+    }, 500);
 
     return () => {
-      clearTimeout(timeoutId);
+      clearTimeout(timeout1);
+      clearTimeout(timeout2);
+      clearTimeout(timeout3);
+      clearTimeout(timeout4);
     };
-  }, []);
+  }, [forceRefresh]);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutStatus, setCheckoutStatus] = useState<"success" | "cancel" | null>(null);

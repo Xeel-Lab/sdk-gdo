@@ -109,21 +109,32 @@ export function useCart() {
           const prevStateStr = JSON.stringify(prevItems);
           
           if (prevStateStr !== currentStateStr) {
-            if (currentItems.length > 0 || prevItems.length === 0) {
-              return currentCartState || createDefaultCartState();
+            // Sempre sincronizza con lo stato globale se è diverso
+            // Questo garantisce che shopping-cart veda i prodotti aggiunti da gdo-list
+            const newState = currentCartState || createDefaultCartState();
+            // Log per debug (rimuovere in produzione se necessario)
+            if (currentItems.length > 0 && prevItems.length === 0) {
+              console.log("[useCart] Syncing cart state: found items in global state", {
+                globalItems: currentItems.length,
+                localItems: prevItems.length
+              });
             }
+            return newState;
           }
           return prevState;
         });
       }
     };
     
-    // Controlla lo stato periodicamente (ogni 200ms) per garantire la sincronizzazione
+    // Controlla lo stato periodicamente (ogni 100ms) per garantire la sincronizzazione
     // Intervallo più frequente per una sincronizzazione più reattiva
-    const intervalId = setInterval(checkState, 200);
+    const intervalId = setInterval(checkState, 100);
     
-    // Controlla anche immediatamente
+    // Controlla anche immediatamente e più volte nei primi secondi per catturare aggiornamenti rapidi
     checkState();
+    setTimeout(checkState, 50);
+    setTimeout(checkState, 150);
+    setTimeout(checkState, 300);
     
     return () => {
       clearInterval(intervalId);
@@ -275,6 +286,33 @@ export function useCart() {
 
   const cartItems = Array.isArray(cartState?.items) ? cartState.items : [];
   
+  // Funzione helper per forzare un refresh dello stato dal globale
+  // Utile quando shopping-cart viene montato e deve leggere lo stato salvato da gdo-list
+  const forceRefreshFromGlobal = React.useCallback(() => {
+    if (typeof window !== "undefined" && window.openai?.widgetState) {
+      const directState = window.openai.widgetState as Record<string, unknown>;
+      if (directState[CART_STATE_KEY] && typeof directState[CART_STATE_KEY] === "object") {
+        const directCartState = directState[CART_STATE_KEY] as CartWidgetState;
+        if (Array.isArray(directCartState.items)) {
+          setCartState((prevState) => {
+            const prevItems = Array.isArray(prevState?.items) ? prevState.items : [];
+            const globalItems = directCartState.items || [];
+            // Se lo stato globale ha items e quello locale no, o sono diversi, sincronizza
+            if (JSON.stringify(prevItems) !== JSON.stringify(globalItems)) {
+              console.log("[useCart] Force refresh: syncing from global state", {
+                globalItems: globalItems.length,
+                localItems: prevItems.length
+              });
+              return directCartState;
+            }
+            return prevState;
+          });
+        }
+      }
+    }
+  }, []);
+  
+  
   // Prevenzione chiamate multiple rapide (debounce per ID)
   const lastAddTimeRef = React.useRef<Map<string, number>>(new Map());
 
@@ -388,8 +426,31 @@ export function useCart() {
       }
 
       const newState = { ...baseState, items };
+      
+      // Log per debug
+      console.log("[useCart] addToCart: adding product", {
+        productId: product.id,
+        productName: product.name,
+        newItemsCount: items.length
+      });
+      
       return newState;
     });
+    
+    // Forza un aggiornamento immediato dello stato globale dopo addToCart
+    // Questo garantisce che shopping-cart veda immediatamente i prodotti aggiunti
+    setTimeout(() => {
+      if (typeof window !== "undefined" && window.openai?.widgetState) {
+        const currentState = window.openai.widgetState as Record<string, unknown>;
+        const currentCart = currentState[CART_STATE_KEY] as CartWidgetState | undefined;
+        const currentItems = Array.isArray(currentCart?.items) ? currentCart.items : [];
+        // Se lo stato globale non è ancora aggiornato, forza un refresh
+        // Il polling dovrebbe gestirlo, ma questo è un fallback
+        if (currentItems.length === 0) {
+          console.log("[useCart] addToCart: global state not updated yet, will sync via polling");
+        }
+      }
+    }, 100);
   }
 
   /**
@@ -435,5 +496,6 @@ export function useCart() {
     removeFromCart,
     clearCart,
     isInCart,
+    forceRefresh: forceRefreshFromGlobal,
   };
 }

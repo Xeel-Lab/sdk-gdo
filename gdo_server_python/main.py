@@ -2901,7 +2901,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         f"arguments_keys={list(arguments.keys()) if arguments else 'none'}"
     )
     
-    # Log esplicito per debugging carbonara
+    # Log esplicito per debugging carbonara (solo per gdo-list e product-list)
     if tool_name in ["gdo-list", "product-list"]:
         logger.info(f"🔍 CARBONARA DEBUG: Tool {tool_name} called with arguments: {arguments}")
     
