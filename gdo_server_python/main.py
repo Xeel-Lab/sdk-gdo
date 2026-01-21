@@ -47,7 +47,7 @@ if not env_path:
 
 # Configurazione logging per activity logs
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     datefmt='%Y-%m-%d %H:%M:%S'
 )
@@ -460,7 +460,20 @@ def filter_products_by_category(products: List[Dict[str, Any]], category: str) -
     return filtered_products
 
 
-def filter_products_by_keywords(products: List[Dict[str, Any]], keywords: List[str]) -> List[Dict[str, Any]]:
+def filter_products_by_keywords(products: List[Dict[str, Any]], keywords: List[str], exact_match: bool = False) -> List[Dict[str, Any]]:
+    """
+    Filtra i prodotti basandosi su keywords nel campo description.
+    
+    Args:
+        products: Lista di prodotti da filtrare
+        keywords: Lista di parole chiave da cercare
+        exact_match: Se True, usa matching esatto (word boundary). Se False, usa matching parziale.
+                     Matching esatto: "pasta" matcha "pasta" ma non "pasta per biscotti"
+                     Matching parziale: "pasta" matcha "pasta", "pasta per biscotti", "pasta per pizza"
+    
+    Returns:
+        Lista filtrata di prodotti
+    """
     if not products or not keywords:
         return products
     normalized = [str(k).lower().strip() for k in keywords if k]
@@ -469,11 +482,28 @@ def filter_products_by_keywords(products: List[Dict[str, Any]], keywords: List[s
     filtered = []
     for product in products:
         description = (product.get("description", "") or "").lower()
-        if any(k in description for k in normalized):
+        matches = False
+        
+        if exact_match:
+            # Matching esatto: usa word boundary per evitare match parziali
+            # Es: "pasta" matcha "pasta" ma non "pasta per biscotti"
+            for keyword in normalized:
+                # Usa regex per word boundary (parola intera)
+                pattern = r'\b' + re.escape(keyword) + r'\b'
+                if re.search(pattern, description):
+                    matches = True
+                    break
+        else:
+            # Matching parziale: keyword contenuta nella description
+            matches = any(k in description for k in normalized)
+        
+        if matches:
             filtered.append(product)
-    logger.info(f"Keyword filter kept {len(filtered)}/{len(products)} products for keywords={normalized}")
+    
+    match_type = "exact" if exact_match else "partial"
+    logger.info(f"Keyword filter ({match_type}) kept {len(filtered)}/{len(products)} products for keywords={normalized}")
     if not filtered:
-        logger.warning(f"No products matched keywords={normalized}")
+        logger.warning(f"No products matched keywords={normalized} (match_type={match_type})")
     return filtered
 
 
@@ -485,9 +515,13 @@ def rank_products_by_criteria(
     Ordina i prodotti basandosi sui criteri di ricerca del cliente.
     
     La funzione ordina i prodotti in modo che:
-    1. Corrispondenze esatte vengano per prime (es. 45 pollici se richiesto)
-    2. Prodotti simili vengano dopo (es. 50 pollici con prezzo simile)
+    1. Prodotti con corrispondenza keywords nel campo description vengano per primi
+    2. Prodotti con prezzo simile al target_price vengano dopo
     3. Altri prodotti vengano alla fine
+    
+    La ricerca è basata esclusivamente su:
+    - Matching delle keywords nel campo description dei prodotti
+    - Prezzo dei prodotti (target_price, max_price, min_price)
     
     Args:
         products: Lista di prodotti da ordinare
@@ -495,7 +529,7 @@ def rank_products_by_criteria(
             - max_price: Prezzo massimo desiderato
             - min_price: Prezzo minimo desiderato
             - target_price: Prezzo target (per trovare prodotti con prezzo simile)
-            - keywords: Lista di parole chiave da cercare nel campo description (contiene ingredienti esatti)
+            - keywords: Lista di parole chiave da cercare nel campo description (matching testuale)
     
     Returns:
         Lista di prodotti ordinata per rilevanza rispetto ai criteri
@@ -528,45 +562,21 @@ def rank_products_by_criteria(
         """
         score = 1000  # Score base (bassa priorità)
         
-        # 1. Corrispondenza esatta per dimensione (priorità massima)
-        target_size = criteria.get("size_inches")
-        if target_size:
-            product_size = extract_size_from_name(product.get("description", ""))
-            if product_size:
-                size_diff = abs(product_size - target_size)
-                if size_diff == 0:
-                    # Corrispondenza esatta: score molto basso
-                    score = 0
-                elif size_diff <= 5:
-                    # Dimensione simile (entro 5 pollici): score basso
-                    score = 10 + size_diff
-                else:
-                    # Dimensione molto diversa: score alto
-                    score = 50 + size_diff
-        
-        # 2. Corrispondenza per prezzo target (priorità alta)
+        # 1. Corrispondenza per prezzo target (priorità alta)
         target_price = criteria.get("target_price")
         if target_price:
             product_price = get_price(product)
             if product_price > 0:
                 price_diff = abs(product_price - target_price)
                 price_diff_percent = (price_diff / target_price) * 100 if target_price > 0 else 100
-                # Se c'è già uno score per dimensione, aggiungi solo un piccolo bonus
-                # Altrimenti, usa il prezzo come criterio principale
-                if score >= 1000:
-                    # Nessuna corrispondenza dimensione, usa prezzo come criterio principale
-                    if price_diff_percent <= 10:
-                        score = 20  # Prezzo molto simile (entro 10%)
-                    elif price_diff_percent <= 25:
-                        score = 30  # Prezzo simile (entro 25%)
-                    else:
-                        score = 40 + price_diff_percent
+                if price_diff_percent <= 10:
+                    score = 20  # Prezzo molto simile (entro 10%)
+                elif price_diff_percent <= 25:
+                    score = 30  # Prezzo simile (entro 25%)
                 else:
-                    # C'è già uno score per dimensione, aggiungi bonus per prezzo simile
-                    if price_diff_percent <= 25:
-                        score += 1  # Bonus per prezzo simile
+                    score = 40 + price_diff_percent
         
-        # 3. Filtri prezzo min/max
+        # 2. Filtri prezzo min/max
         max_price = criteria.get("max_price")
         min_price = criteria.get("min_price")
         product_price = get_price(product)
@@ -575,7 +585,7 @@ def rank_products_by_criteria(
         if min_price and product_price < min_price:
             score += 50  # Piccola penalità se sotto il prezzo minimo
         
-        # 4. Corrispondenza per parole chiave
+        # 3. Corrispondenza per parole chiave (matching sul campo description)
         keywords = criteria.get("keywords", [])
         if keywords:
             desc_lower = (product.get("description", "") or "").lower()
@@ -741,7 +751,7 @@ def transform_products_to_places(
     
     Args:
         products: Lista di prodotti dal database (dizionari Python)
-        criteria: Dizionario opzionale con criteri di ordinamento (size_inches, target_price, ecc.)
+        criteria: Dizionario opzionale con criteri di ordinamento (target_price, keywords, ecc.)
     
     Returns:
         Lista di 'places' nel formato atteso dai widget, ordinata per rilevanza
@@ -863,7 +873,7 @@ def transform_products_to_albums(
     
     Args:
         products: Lista di prodotti dal database (dizionari Python)
-        criteria: Dizionario opzionale con criteri di ordinamento (size_inches, target_price, ecc.)
+        criteria: Dizionario opzionale con criteri di ordinamento (target_price, keywords, ecc.)
     
     Returns:
         Lista di 'albums' nel formato atteso dal widget albums, con prodotti ordinati per rilevanza
@@ -1384,10 +1394,6 @@ CATEGORY_FILTER_INPUT_SCHEMA: Dict[str, Any] = {
             "type": "string",
             "description": "Categoria opzionale per filtrare i prodotti (es. 'Ortofrutta', 'Carne e pollame', 'Pesce e prodotti ittici', 'Latticini e uova'). Se non specificata, vengono restituiti tutti i prodotti.",
         },
-        "size_inches": {
-            "type": "integer",
-            "description": "Quantità richiesta (es. 500, 1000). Usa questo parametro quando il cliente specifica una quantità specifica (es. '500g di carne'). I prodotti con quantità esatta verranno mostrati per primi, seguiti da prodotti con quantità simili.",
-        },
         "target_price": {
             "type": "number",
             "description": "Prezzo target desiderato dal cliente. I prodotti con prezzo simile verranno mostrati prima. Usa questo quando il cliente specifica un budget o un prezzo desiderato.",
@@ -1403,7 +1409,11 @@ CATEGORY_FILTER_INPUT_SCHEMA: Dict[str, Any] = {
         "keywords": {
             "type": "array",
             "items": {"type": "string"},
-            "description": "Lista di parole chiave da cercare nel nome o descrizione del prodotto. I prodotti che corrispondono a più parole chiave avranno priorità più alta.",
+            "description": "Lista di parole chiave da cercare nel campo description del prodotto. I prodotti che corrispondono a più parole chiave avranno priorità più alta.",
+        },
+        "exact_match": {
+            "type": "boolean",
+            "description": "Se true, usa matching esatto (word boundary) per le keywords. Matching esatto: 'pasta' matcha 'pasta' ma non 'pasta per biscotti'. Se false, usa matching parziale. Usa exact_match=true per ricette quando devi trovare ingredienti specifici. Usa exact_match=false per ricerche generiche.",
         },
         "product_ids": {
             "type": "array",
@@ -2758,6 +2768,17 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
     arguments = req.params.arguments or {}
     start_time = datetime.now()
     
+    # Log completo dell'input utente (arguments) in formato JSON
+    try:
+        arguments_json = json.dumps(arguments, ensure_ascii=False, indent=2, default=str)
+        logger.debug(
+            f"User input received for tool '{tool_name}':\n{arguments_json}"
+        )
+    except Exception as e:
+        logger.debug(
+            f"User input received for tool '{tool_name}': {arguments} (JSON serialization failed: {e})"
+        )
+    
     # Log inizio esecuzione tool (senza dati sensibili)
     logger.info(
         f"Tool execution started: tool={tool_name}, "
@@ -3554,18 +3575,16 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
     try:
         # Estrai i parametri dagli argomenti
         category = arguments.get("category") if arguments else None
-        size_inches = arguments.get("size_inches") if arguments else None
         target_price = arguments.get("target_price") if arguments else None
         max_price = arguments.get("max_price") if arguments else None
         min_price = arguments.get("min_price") if arguments else None
         raw_keywords = arguments.get("keywords") if arguments else None
         keywords = raw_keywords if isinstance(raw_keywords, list) else [raw_keywords] if raw_keywords else []
         product_ids = arguments.get("product_ids") if arguments else None
+        exact_match = arguments.get("exact_match", False) if arguments else False
         
         # Costruisci il dizionario dei criteri di ordinamento
         criteria = {}
-        if size_inches is not None:
-            criteria["size_inches"] = int(size_inches) if isinstance(size_inches, (int, float, str)) else None
         if target_price is not None:
             criteria["target_price"] = float(target_price) if isinstance(target_price, (int, float, str)) else None
         if max_price is not None:
@@ -3577,6 +3596,26 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         
         # Rimuovi valori None dal dizionario criteri
         criteria = {k: v for k, v in criteria.items() if v is not None and v != []}
+        
+        # Log debug dettagliato di tutti i parametri estratti
+        extracted_params = {
+            "category": category,
+            "target_price": target_price,
+            "max_price": max_price,
+            "min_price": min_price,
+            "keywords": keywords,
+            "product_ids": product_ids,
+            "exact_match": exact_match,
+        }
+        try:
+            params_json = json.dumps(extracted_params, ensure_ascii=False, indent=2, default=str)
+            logger.debug(
+                f"Tool {tool_name}: Extracted parameters:\n{params_json}"
+            )
+        except Exception as e:
+            logger.debug(
+                f"Tool {tool_name}: Extracted parameters: {extracted_params} (JSON serialization failed: {e})"
+            )
         
         if category or product_ids or keywords:
             logger.info(
@@ -3590,7 +3629,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck")
             products = await get_products_from_motherduck(category=category, product_ids=product_ids)
             if keywords and not product_ids:
-                products = filter_products_by_keywords(products, keywords)
+                products = filter_products_by_keywords(products, keywords, exact_match=exact_match)
             product_count = len(products) if products else 0
             if product_count == 0:
                 # Se la lista è vuota, potrebbe essere dovuto a:
@@ -3623,7 +3662,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to albums")
             products = await get_products_from_motherduck(category=category, product_ids=product_ids)
             if keywords and not product_ids:
-                products = filter_products_by_keywords(products, keywords)
+                products = filter_products_by_keywords(products, keywords, exact_match=exact_match)
             if category:
                 logger.info(
                     f"Tool {tool_name}: Filtered {len(products)} products for category '{category}'. "
@@ -3683,7 +3722,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             products = await get_products_from_motherduck(category=category, product_ids=product_ids)
             
             if keywords and not product_ids:
-                products = filter_products_by_keywords(products, keywords)
+                products = filter_products_by_keywords(products, keywords, exact_match=exact_match)
             
             # Limiti per evitare risposte troppo grandi
             MAX_CAROUSEL_PRODUCTS = 6
@@ -3765,7 +3804,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
             products = await get_products_from_motherduck(category=category, product_ids=product_ids)
             if keywords and not product_ids:
-                products = filter_products_by_keywords(products, keywords)
+                products = filter_products_by_keywords(products, keywords, exact_match=exact_match)
             
             # Limita a MAX_PRODUCTS_SHOP (24) per evitare risposte troppo grandi
             MAX_SHOP_PRODUCTS = 24
