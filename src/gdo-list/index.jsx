@@ -17,7 +17,7 @@ function App() {
 
   const handleAddToCart = (place) => {
 
-    logger.info("[gdo-list] Adding to cart", place);
+    console.log("[gdo-list] Adding to cart", place);
 
     addToCart({
       id: place.id,
