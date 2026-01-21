@@ -24,7 +24,7 @@ export function useCart() {
   // Ignora completamente qualsiasi altro dato in widgetState (es. da gdo-shop)
   // Usa useOpenAiGlobal per reagire ai cambiamenti di widgetState
   const widgetStateGlobal = useOpenAiGlobal("widgetState") as Record<string, unknown> | null;
-  
+
   // Estrai SOLO la chiave specifica, ignora tutto il resto
   // Leggi anche direttamente da window.openai.widgetState come fallback
   const widgetStateFromGlobal = React.useMemo(() => {
@@ -39,7 +39,7 @@ export function useCart() {
         }
       }
     }
-    
+
     // Fallback: leggi direttamente da window.openai.widgetState
     if (typeof window !== "undefined" && window.openai?.widgetState) {
       const directState = window.openai.widgetState as Record<string, unknown>;
@@ -50,7 +50,7 @@ export function useCart() {
         }
       }
     }
-    
+
     return null;
   }, [widgetStateGlobal]);
 
@@ -66,48 +66,48 @@ export function useCart() {
         }
       }
     }
-    
+
     // Se c'è uno stato valido nella chiave specifica da useOpenAiGlobal, usalo (anche se vuoto)
     if (widgetStateFromGlobal && Array.isArray(widgetStateFromGlobal.items)) {
       return widgetStateFromGlobal;
     }
-    
+
     // Altrimenti parte sempre vuoto
     return createDefaultCartState();
   });
-  
+
   // Aggiungi un listener diretto su window.openai.widgetState per reagire ai cambiamenti
   // Questo garantisce che anche se useOpenAiGlobal non reagisce, il carrello si aggiorna
   React.useEffect(() => {
     if (typeof window === "undefined" || !window.openai?.widgetState) {
       return;
     }
-    
+
     let lastKnownState: string | null = null;
-    
+
     const checkState = () => {
       const currentState = window.openai.widgetState as Record<string, unknown> | undefined;
       if (!currentState) {
         return;
       }
-      
+
       const currentCartState = currentState[CART_STATE_KEY] as CartWidgetState | undefined;
       const currentItems = Array.isArray(currentCartState?.items) ? currentCartState.items : [];
       const currentStateStr = JSON.stringify(currentItems);
-      
+
       if (lastKnownState !== currentStateStr) {
         lastKnownState = currentStateStr;
-        
+
         // Non aggiornare se stiamo aggiornando localmente (per evitare loop)
         if (isUpdatingLocalRef.current) {
           return;
         }
-        
+
         // Aggiorna lo stato locale se è diverso
         setCartState((prevState) => {
           const prevItems = Array.isArray(prevState?.items) ? prevState.items : [];
           const prevStateStr = JSON.stringify(prevItems);
-          
+
           if (prevStateStr !== currentStateStr) {
             // Sempre sincronizza con lo stato globale se è diverso
             // Questo garantisce che shopping-cart veda i prodotti aggiunti da gdo-list
@@ -125,17 +125,17 @@ export function useCart() {
         });
       }
     };
-    
+
     // Controlla lo stato periodicamente (ogni 100ms) per garantire la sincronizzazione
     // Intervallo più frequente per una sincronizzazione più reattiva
     const intervalId = setInterval(checkState, 100);
-    
+
     // Controlla anche immediatamente e più volte nei primi secondi per catturare aggiornamenti rapidi
     checkState();
     setTimeout(checkState, 50);
     setTimeout(checkState, 150);
     setTimeout(checkState, 300);
-    
+
     return () => {
       clearInterval(intervalId);
     };
@@ -191,7 +191,7 @@ export function useCart() {
 
   // Ref per tracciare se questo è il primo render (per evitare di sovrascrivere lo stato globale all'inizializzazione)
   const isFirstRenderRef = React.useRef(true);
-  
+
   // Aggiorna widgetState globale quando cambia cartState
   React.useEffect(() => {
     // Al primo render, non aggiornare lo stato globale se è vuoto (potrebbe sovrascrivere uno stato esistente)
@@ -211,14 +211,14 @@ export function useCart() {
         }
       }
     }
-    
+
     if (typeof window !== "undefined" && window.openai?.setWidgetState) {
       const currentGlobalState = (window.openai.widgetState || {}) as Record<string, unknown>;
       // Evita loop infiniti: non aggiornare se lo stato globale è già uguale
       const currentGlobalCart = currentGlobalState[CART_STATE_KEY] as CartWidgetState | undefined;
       const currentGlobalItems = Array.isArray(currentGlobalCart?.items) ? currentGlobalCart.items : [];
       const localItems = Array.isArray(cartState?.items) ? cartState.items : [];
-      
+
       // IMPORTANTE: Non sovrascrivere uno stato globale con items con uno stato locale vuoto
       // Questo previene che un nuovo widget che parte vuoto cancelli il carrello esistente
       if (currentGlobalItems.length > 0 && localItems.length === 0) {
@@ -232,7 +232,7 @@ export function useCart() {
         });
         return;
       }
-      
+
       // Solo aggiorna se lo stato è effettivamente cambiato
       const currentGlobalCartStr = JSON.stringify(currentGlobalCart);
       const cartStateStr = JSON.stringify(cartState);
@@ -247,17 +247,17 @@ export function useCart() {
         if (typeof window !== "undefined" && window.openai) {
           window.openai.widgetState = newState;
         }
-        
+
         void window.openai.setWidgetState(newState).then(() => {
           // Assicurati che lo stato sia ancora sincronizzato dopo setWidgetState
           if (typeof window !== "undefined" && window.openai) {
             window.openai.widgetState = newState;
-            
+
             // Emetti manualmente l'evento SET_GLOBALS_EVENT_TYPE per notificare useOpenAiGlobal
             if (typeof window.dispatchEvent !== "undefined") {
               try {
                 const event = new CustomEvent("openai:set_globals", {
-                  detail: { 
+                  detail: {
                     globals: {
                       widgetState: newState
                     }
@@ -269,7 +269,7 @@ export function useCart() {
               }
             }
           }
-          
+
           // Reset il flag dopo che setWidgetState è completato
           // Usa setTimeout per dare tempo all'evento di propagarsi e agli altri widget di reagire
           setTimeout(() => {
@@ -285,7 +285,7 @@ export function useCart() {
   }, [cartState]);
 
   const cartItems = Array.isArray(cartState?.items) ? cartState.items : [];
-  
+
   // Funzione helper per forzare un refresh dello stato dal globale
   // Utile quando shopping-cart viene montato e deve leggere lo stato salvato da gdo-list
   const forceRefreshFromGlobal = React.useCallback(() => {
@@ -311,8 +311,8 @@ export function useCart() {
       }
     }
   }, []);
-  
-  
+
+
   // Prevenzione chiamate multiple rapide (debounce per ID)
   const lastAddTimeRef = React.useRef<Map<string, number>>(new Map());
 
@@ -329,6 +329,9 @@ export function useCart() {
     image?: string;
     thumbnail?: string;
   }) {
+
+    console.log("[useCart] Adding to cart", product);
+
     if (!product.id || !product.name) {
       return;
     }
@@ -337,13 +340,13 @@ export function useCart() {
     const now = Date.now();
     const lastAddTime = lastAddTimeRef.current.get(product.id) || 0;
     const timeSinceLastAdd = now - lastAddTime;
-    
+
     if (timeSinceLastAdd < 500) {
       return;
     }
-    
+
     lastAddTimeRef.current.set(product.id, now);
-    
+
     setCartState((prevState) => {
       const baseState: CartWidgetState = prevState ?? createDefaultCartState();
       const items = Array.isArray(baseState.items)
@@ -352,7 +355,7 @@ export function useCart() {
 
       // Cerca se il prodotto esiste già nel carrello (solo per ID specifico)
       const existingIndex = items.findIndex((item) => item.id === product.id);
-      
+
       // Debug: verifica se ci sono altri prodotti con lo stesso ID (non dovrebbe succedere)
       const duplicateIds = items.filter((item) => item.id === product.id);
       if (duplicateIds.length > 1) {
@@ -426,17 +429,17 @@ export function useCart() {
       }
 
       const newState = { ...baseState, items };
-      
+
       // Log per debug
       console.log("[useCart] addToCart: adding product", {
         productId: product.id,
         productName: product.name,
         newItemsCount: items.length
       });
-      
+
       return newState;
     });
-    
+
     // Forza un aggiornamento immediato dello stato globale dopo addToCart
     // Questo garantisce che shopping-cart veda immediatamente i prodotti aggiunti
     setTimeout(() => {
