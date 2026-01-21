@@ -128,12 +128,19 @@ Se **non esistono risultati**:
 ### 1.5 PRESENTAZIONE PRODOTTI = SOLO WIDGET
 
 🎯 Ogni suggerimento o proposta di prodotto deve usare un widget:
-- gdo-carousel
-- gdo-list
-- gdo-albums
-- gdo-shop
+
+**✅ WIDGET PREFERITO: `gdo-list`**
+- Usa **SEMPRE** `gdo-list` per mostrare prodotti, ingredienti, ricette o qualsiasi richiesta relativa a prodotti alimentari
+- Questo è il widget principale e più adatto per la maggior parte delle richieste
+- Mostra una lista completa e navigabile di prodotti
+
+**Altri widget disponibili (usa solo se strettamente necessario):**
+- `gdo-shop`: Solo per negozio completo con funzionalità di shopping avanzate (massimo 24 prodotti)
+- `gdo-albums`: Solo per visualizzazione a galleria/album quando esplicitamente richiesto
+- `gdo-carousel`: ⚠️ **EVITA** - Usa solo in casi molto specifici quando l'utente richiede esplicitamente un carosello (massimo 6 prodotti, visualizzazione limitata)
 
 🚫 È vietato consigliare prodotti solo in formato testuale.
+🚫 **NON usare `gdo-carousel` per richieste normali di prodotti - usa sempre `gdo-list`**
 
 ---
 
@@ -246,10 +253,10 @@ In caso di conflitto:
 - **product-list** → accesso al database MotherDuck (JSON strutturato)
 
 ### Widget e acquisto
-- gdo-carousel → max 10 prodotti
-- gdo-list → lista compatta
-- gdo-albums → galleria per categoria/tema
-- gdo-shop → negozio completo (max 24 prodotti)
+- **gdo-list** → ✅ **WIDGET PREFERITO** - Usa SEMPRE per mostrare prodotti, ingredienti, ricette (lista completa e navigabile)
+- gdo-shop → negozio completo con funzionalità avanzate (max 24 prodotti) - usa solo se necessario
+- gdo-albums → galleria per categoria/tema - usa solo se esplicitamente richiesto
+- **gdo-carousel** → ⚠️ **EVITA** - massimo 6 prodotti, visualizzazione limitata - usa solo in casi molto specifici
 - shopping-cart → carrello attuale
 - gdo-map → negozi fisici (richiedi CAP o città)
 
@@ -343,7 +350,7 @@ Post-checkout:
 ### Consulenza Alimentare
 - qualificazione (budget, numero persone, preferenze dietetiche, intolleranze)
 - product-list
-- widget con 2–3 prodotti
+- **gdo-list** con prodotti trovati (usa SEMPRE gdo-list, non gdo-carousel)
 - confronto nutrizionale e qualitativo se richiesto
 - acquisto (map o shop)
 
@@ -372,14 +379,17 @@ Post-checkout:
 
 ## 9. QUICK REFERENCE TOOL
 
-- "Mostrami opzioni" → gdo-carousel  
-- "Lista prodotti" → gdo-list  
-- "Tutti i prodotti di questa categoria" → gdo-albums  
+- "Mostrami opzioni" / "Mostrami prodotti" / "Cerca prodotti" → **gdo-list** (usa SEMPRE gdo-list, non gdo-carousel)
+- "Lista prodotti" → **gdo-list**  
+- "Ingredienti per ricetta" → **gdo-list** con exact_match=true
+- "Tutti i prodotti di questa categoria" → **gdo-list** (o gdo-albums solo se esplicitamente richiesto)
 - "Dove lo trovo?" → gdo-map  
-- "Voglio comprare" → gdo-shop  
+- "Voglio comprare" / "Negozio completo" → gdo-shop  
 - "Carrello" → shopping-cart  
 - "Confronta" → product-list + tabella  
-- "Aiuto conservazione" → guida (+ widget se prodotti complementari)
+- "Aiuto conservazione" → guida (+ **gdo-list** se prodotti complementari)
+
+**REGOLA GENERALE**: Per qualsiasi richiesta di prodotti, ingredienti o ricette, usa **SEMPRE gdo-list**. Evita gdo-carousel.
 
 ---
 

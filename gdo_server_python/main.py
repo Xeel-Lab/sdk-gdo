@@ -474,15 +474,28 @@ def filter_products_by_keywords(products: List[Dict[str, Any]], keywords: List[s
     Returns:
         Lista filtrata di prodotti
     """
+    match_type = "exact" if exact_match else "partial"
+    logger.debug(f"filter_products_by_keywords: Starting filter with {len(products) if products else 0} products, keywords={keywords}, exact_match={exact_match} (match_type={match_type})")
+    
     if not products or not keywords:
+        logger.debug(f"filter_products_by_keywords: Early return - products={len(products) if products else 0}, keywords={keywords}")
         return products
+    
     normalized = [str(k).lower().strip() for k in keywords if k]
     if not normalized:
+        logger.debug(f"filter_products_by_keywords: Early return - no normalized keywords after processing")
         return products
+    
+    logger.debug(f"filter_products_by_keywords: Normalized keywords={normalized}, filtering {len(products)} products with {match_type} matching")
+    
     filtered = []
+    matched_products_info = []
+    
     for product in products:
         description = (product.get("description", "") or "").lower()
+        product_id = product.get("ID") or product.get("id") or "unknown"
         matches = False
+        matched_keyword = None
         
         if exact_match:
             # Matching esatto: usa word boundary per evitare match parziali
@@ -492,18 +505,34 @@ def filter_products_by_keywords(products: List[Dict[str, Any]], keywords: List[s
                 pattern = r'\b' + re.escape(keyword) + r'\b'
                 if re.search(pattern, description):
                     matches = True
+                    matched_keyword = keyword
                     break
         else:
             # Matching parziale: keyword contenuta nella description
-            matches = any(k in description for k in normalized)
+            for keyword in normalized:
+                if keyword in description:
+                    matches = True
+                    matched_keyword = keyword
+                    break
         
         if matches:
             filtered.append(product)
+            if len(matched_products_info) < 5:  # Log solo i primi 5 per non intasare i log
+                matched_products_info.append({
+                    "id": product_id,
+                    "description": product.get("description", "")[:50] + "..." if len(product.get("description", "")) > 50 else product.get("description", ""),
+                    "matched_keyword": matched_keyword
+                })
     
-    match_type = "exact" if exact_match else "partial"
     logger.info(f"Keyword filter ({match_type}) kept {len(filtered)}/{len(products)} products for keywords={normalized}")
+    
+    if matched_products_info:
+        logger.debug(f"filter_products_by_keywords: Sample matched products (first {len(matched_products_info)}): {matched_products_info}")
+    
     if not filtered:
         logger.warning(f"No products matched keywords={normalized} (match_type={match_type})")
+        logger.debug(f"filter_products_by_keywords: No matches found. Sample product descriptions (first 3): {[(p.get('description', '')[:50] + '...' if len(p.get('description', '')) > 50 else p.get('description', '')) for p in products[:3]]}")
+    
     return filtered
 
 
@@ -640,13 +669,22 @@ def _detect_carbonara_request(keywords: List[str] = None, category: str = None) 
     return False
 
 
-async def get_products_from_motherduck(category: str = None, product_ids: List[int] = None):
+async def get_products_from_motherduck(
+    category: str = None, 
+    product_ids: List[int] = None,
+    keywords: List[str] = None,
+    exact_match: bool = False
+):
     """
-    Recupera i prodotti alimentari dal database MotherDuck, opzionalmente filtrati per categoria o ID.
+    Recupera i prodotti alimentari dal database MotherDuck con filtri applicati direttamente nella query SQL.
     
     Args:
         category: Categoria opzionale per filtrare i prodotti (es. "Ortofrutta", "Carne e pollame", "Pesce e prodotti ittici")
         product_ids: Lista opzionale di ID specifici da recuperare (es. [3, 938, 2108, 2127, 2111])
+        keywords: Lista di parole chiave da cercare in description e categories
+        exact_match: Se True, usa matching esatto (word boundary) per keywords. Se False, usa matching parziale.
+                    Per matching esatto: "pasta" matcha solo "pasta" e non "pasta per biscotti"
+                    Per matching generico: "verdure" cerca in description e categories con LIKE
     
     Returns:
         List[Dict[str, Any]]: Lista di prodotti come dizionari Python.
@@ -655,41 +693,89 @@ async def get_products_from_motherduck(category: str = None, product_ids: List[i
     try:
         logger.info("Connecting to MotherDuck database")
         with get_motherduck_connection() as con:
-            # Query per recuperare tutti i prodotti dalla tabella products_xeel_shop
-            # La tabella è nello schema 'main' (impostato in get_motherduck_connection)
-            # Database: app_gpt_gdo.main.products_xeel_shop
-            # Colonne: ID, company, description, price, categories
+            # Costruisci la query base
+            base_query = "SELECT ID, company, description, price, categories FROM products_xeel_shop"
+            conditions = []
+            
+            # Filtro per product_ids (ha priorità)
             if product_ids:
-                # Se sono specificati ID, filtra direttamente nella query SQL usando il percorso completo
                 ids_str = ",".join(str(pid) for pid in product_ids)
-                query = f"SELECT * FROM app_gpt_gdo.main.products_xeel_shop WHERE id IN ({ids_str})"
+                conditions.append(f"id IN ({ids_str})")
                 logger.info(f"Filtering products by IDs: {product_ids}")
+            
+            # Filtro per keywords (se non ci sono product_ids)
+            elif keywords:
+                normalized_keywords = [str(k).lower().strip() for k in keywords if k]
+                if normalized_keywords:
+                    keyword_conditions = []
+                    
+                    if exact_match:
+                        # Matching esatto: usa regex con word boundary
+                        # DuckDB supporta REGEXP_MATCHES per regex
+                        # Per word boundary in SQL, usiamo pattern che matcha spazi o inizio/fine stringa
+                        for keyword in normalized_keywords:
+                            # Escape caratteri speciali per regex SQL
+                            escaped_keyword = keyword.replace("'", "''").replace("\\", "\\\\").replace(".", "\\.").replace("+", "\\+").replace("*", "\\*").replace("?", "\\?").replace("^", "\\^").replace("$", "\\$").replace("[", "\\[").replace("]", "\\]").replace("(", "\\(").replace(")", "\\)").replace("{", "\\{").replace("}", "\\}").replace("|", "\\|")
+                            # Word boundary: cerca la parola intera usando pattern SQL
+                            # Pattern: inizio stringa o carattere non alfanumerico, poi keyword, poi fine stringa o carattere non alfanumerico
+                            pattern = f"(^|[^a-zA-Z0-9]){escaped_keyword}([^a-zA-Z0-9]|$)"
+                            keyword_conditions.append(
+                                f"REGEXP_MATCHES(LOWER(description), '{pattern}')"
+                            )
+                        logger.info(f"Using exact match (word boundary) for keywords: {normalized_keywords}")
+                    else:
+                        # Matching generico: cerca in description e categories con LIKE
+                        for keyword in normalized_keywords:
+                            escaped_keyword = keyword.replace("'", "''").replace("%", "\\%").replace("_", "\\_")
+                            # Cerca in description
+                            keyword_conditions.append(
+                                f"LOWER(description) LIKE '%{escaped_keyword}%'"
+                            )
+                            # Cerca anche in categories (se è una stringa)
+                            keyword_conditions.append(
+                                f"LOWER(categories) LIKE '%{escaped_keyword}%'"
+                            )
+                        logger.info(f"Using generic match (LIKE) for keywords: {normalized_keywords} in description and categories")
+                    
+                    if keyword_conditions:
+                        # Se ci sono più keywords, usa OR tra di esse
+                        conditions.append(f"({' OR '.join(keyword_conditions)})")
+            
+            # Filtro per category (solo se non ci sono product_ids)
+            # Per category, usiamo il filtro in memoria perché il mapping è complesso
+            # Ma possiamo aggiungere un filtro SQL base se la category è esattamente nel campo categories
+            if category and not product_ids:
+                # Aggiungi un filtro SQL base per category (matching parziale case-insensitive)
+                escaped_category = category.replace("'", "''").replace("%", "\\%").replace("_", "\\_")
+                conditions.append(f"LOWER(categories) LIKE '%{escaped_category.lower()}%'")
+                logger.info(f"Adding SQL category filter for: {category}")
+            
+            # Costruisci la query finale
+            if conditions:
+                query = f"{base_query} WHERE {' AND '.join(conditions)}"
             else:
-                query = "SELECT ID, company, description, price, categories FROM products_xeel_shop"
+                query = base_query
+            
             logger.info(f"Executing MotherDuck query: {query}")
             products_df = con.execute(query).fetchdf()
             
             # Converti DataFrame in lista di dizionari per compatibilità JSON
             products = products_df.to_dict(orient="records")
             
-            # Filtra per categoria se specificata (solo se non sono già stati filtrati per ID)
+            # Se abbiamo una category e non product_ids, applichiamo anche il filtro in memoria
+            # per un matching più preciso basato sul mapping delle categorie
             if category and not product_ids:
                 original_count = len(products)
-                logger.info(f"🔍 Applying category filter '{category}' to {original_count} products")
+                logger.info(f"🔍 Applying refined category filter '{category}' to {original_count} products from SQL")
                 products = filter_products_by_category(products, category)
                 filtered_count = len(products)
-                logger.info(f"✅ Filter result: {filtered_count}/{original_count} products match category '{category}'")
+                logger.info(f"✅ Refined filter result: {filtered_count}/{original_count} products match category '{category}'")
                 
                 if filtered_count == 0 and original_count > 0:
                     logger.warning(
-                        f"⚠️ No products found for category '{category}'. "
-                        f"Total products available: {original_count}. "
+                        f"⚠️ No products found for category '{category}' after refined filter. "
+                        f"SQL returned {original_count} products. "
                         f"Check filter logic and category mapping."
-                    )
-                elif filtered_count == original_count:
-                    logger.warning(
-                        f"⚠️ Filter returned all products ({filtered_count}). "
-                        f"This might indicate the filter is not working correctly."
                     )
             
             # Log per audit
@@ -697,6 +783,9 @@ async def get_products_from_motherduck(category: str = None, product_ids: List[i
                 log_msg = f"Retrieved {len(products)} products from MotherDuck"
                 if product_ids:
                     log_msg += f" (filtered by IDs: {product_ids})"
+                elif keywords:
+                    match_type = "exact" if exact_match else "generic"
+                    log_msg += f" (filtered by keywords: {keywords}, match_type: {match_type})"
                 elif category:
                     log_msg += f" (filtered by category: {category})"
                 logger.info(log_msg)
@@ -704,6 +793,9 @@ async def get_products_from_motherduck(category: str = None, product_ids: List[i
                 log_msg = "No products retrieved from MotherDuck (empty result)"
                 if product_ids:
                     log_msg += f" for IDs: {product_ids}"
+                elif keywords:
+                    match_type = "exact" if exact_match else "generic"
+                    log_msg += f" for keywords: {keywords} (match_type: {match_type})"
                 elif category:
                     log_msg += f" for category: {category}"
                 logger.warning(log_msg)
@@ -2399,8 +2491,9 @@ def _tool_description(widget: GdoWidget) -> str:
         ),
         "gdo-carousel": (
             "Mostra un carosello interattivo di prodotti GDO (massimo 6 prodotti). "
-            "Usa questo tool quando l'utente vuole sfogliare prodotti in formato carosello o visualizzare "
-            "una selezione di prodotti in modo interattivo. Puoi filtrare per categoria usando il parametro 'category' "
+            "⚠️ USA SOLO IN CASI MOLTO SPECIFICI quando l'utente richiede esplicitamente un carosello. "
+            "Per la maggior parte delle richieste di prodotti, usa invece 'gdo-list' che è più adatto. "
+            "Puoi filtrare per categoria usando il parametro 'category' "
             "(es. 'Ortofrutta', 'Carne e pollame', 'Pesce e prodotti ittici', 'Latticini e uova'). Restituisce un widget HTML con un carosello navigabile."
         ),
         "gdo-albums": (
@@ -2410,10 +2503,13 @@ def _tool_description(widget: GdoWidget) -> str:
             "(es. 'Ortofrutta', 'Carne e pollame', 'Pesce e prodotti ittici', 'Latticini e uova'). Restituisce un widget HTML con una galleria interattiva."
         ),
         "gdo-list": (
-            "Mostra una lista di prodotti GDO. "
-            "Usa questo tool quando l'utente chiede di vedere un elenco di prodotti o una lista semplice. "
+            "✅ WIDGET PREFERITO per mostrare prodotti GDO. "
+            "Usa SEMPRE questo tool quando l'utente chiede prodotti, ingredienti, ricette o qualsiasi richiesta relativa a prodotti alimentari. "
+            "Questo è il widget principale e più adatto per la maggior parte delle richieste. "
             "Puoi filtrare per categoria usando il parametro 'category' "
-            "(es. 'Ortofrutta', 'Carne e pollame', 'Pesce e prodotti ittici', 'Latticini e uova'). Restituisce un widget HTML con una lista formattata di prodotti."
+            "(es. 'Ortofrutta', 'Carne e pollame', 'Pesce e prodotti ittici', 'Latticini e uova'). "
+            "Puoi cercare ingredienti specifici usando il parametro 'keywords' con 'exact_match=true' per ricette o 'exact_match=false' per ricerche generiche. "
+            "Restituisce un widget HTML con una lista formattata di prodotti."
         ),
         "gdo-shop": (
             "Apre il negozio GDO completo con funzionalità di shopping (massimo 24 prodotti). "
@@ -3627,9 +3723,12 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         if tool_name == "product-list":
             # Tool che richiede accesso a MotherDuck
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck")
-            products = await get_products_from_motherduck(category=category, product_ids=product_ids)
-            if keywords and not product_ids:
-                products = filter_products_by_keywords(products, keywords, exact_match=exact_match)
+            products = await get_products_from_motherduck(
+                category=category, 
+                product_ids=product_ids,
+                keywords=keywords if keywords else None,
+                exact_match=exact_match
+            )
             product_count = len(products) if products else 0
             if product_count == 0:
                 # Se la lista è vuota, potrebbe essere dovuto a:
@@ -3660,9 +3759,12 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
             # Non aggiungere mai prodotti di altre categorie per "riempire" la galleria
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to albums")
-            products = await get_products_from_motherduck(category=category, product_ids=product_ids)
-            if keywords and not product_ids:
-                products = filter_products_by_keywords(products, keywords, exact_match=exact_match)
+            products = await get_products_from_motherduck(
+                category=category, 
+                product_ids=product_ids,
+                keywords=keywords if keywords else None,
+                exact_match=exact_match
+            )
             if category:
                 logger.info(
                     f"Tool {tool_name}: Filtered {len(products)} products for category '{category}'. "
@@ -3719,10 +3821,12 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                     )
             
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
-            products = await get_products_from_motherduck(category=category, product_ids=product_ids)
-            
-            if keywords and not product_ids:
-                products = filter_products_by_keywords(products, keywords, exact_match=exact_match)
+            products = await get_products_from_motherduck(
+                category=category, 
+                product_ids=product_ids,
+                keywords=keywords if keywords else None,
+                exact_match=exact_match
+            )
             
             # Limiti per evitare risposte troppo grandi
             MAX_CAROUSEL_PRODUCTS = 6
@@ -3802,9 +3906,12 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             # gdo-shop recupera prodotti dal database MotherDuck e li trasforma in places
             # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
-            products = await get_products_from_motherduck(category=category, product_ids=product_ids)
-            if keywords and not product_ids:
-                products = filter_products_by_keywords(products, keywords, exact_match=exact_match)
+            products = await get_products_from_motherduck(
+                category=category, 
+                product_ids=product_ids,
+                keywords=keywords if keywords else None,
+                exact_match=exact_match
+            )
             
             # Limita a MAX_PRODUCTS_SHOP (24) per evitare risposte troppo grandi
             MAX_SHOP_PRODUCTS = 24
