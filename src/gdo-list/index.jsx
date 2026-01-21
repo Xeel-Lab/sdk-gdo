@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { PlusCircle, Star, ShoppingCart } from "lucide-react";
+import { PlusCircle, ShoppingCart } from "lucide-react";
 import { Button } from "@openai/apps-sdk-ui/components/Button";
 import { Image } from "@openai/apps-sdk-ui/components/Image";
 import { useOpenAiGlobal } from "../use-openai-global";
@@ -84,27 +84,8 @@ function App() {
                       <div className="font-medium text-sm sm:text-md truncate max-w-[40ch]">
                         {place.name}
                       </div>
-                      <div className="mt-1 sm:mt-0.25 flex items-center gap-3 text-black/70 text-sm">
-                        <div className="flex items-center gap-1">
-                          <Star
-                            strokeWidth={1.5}
-                            className="h-3 w-3 text-black"
-                          />
-                          <span>
-                            {place.rating?.toFixed
-                              ? place.rating.toFixed(1)
-                              : place.rating}
-                          </span>
-                        </div>
-                        <div className="whitespace-nowrap sm:hidden">
-                          {place.city || "–"}
-                        </div>
-                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="hidden sm:block text-end py-2 px-3 text-sm text-black/60 whitespace-nowrap flex-auto">
-                  {place.city || "–"}
                 </div>
                 <div className="py-2 whitespace-nowrap flex justify-end">
                   <Button

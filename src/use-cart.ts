@@ -55,12 +55,8 @@ export function useCart() {
   }, [widgetStateGlobal]);
 
   const [cartState, setCartState] = React.useState<CartWidgetState>(() => {
-    // Se c'è uno stato valido nella chiave specifica, usalo (anche se vuoto)
-    if (widgetStateFromGlobal && Array.isArray(widgetStateFromGlobal.items)) {
-      return widgetStateFromGlobal;
-    }
-    
-    // Fallback: leggi direttamente da window.openai.widgetState durante l'inizializzazione
+    // Leggi sempre direttamente da window.openai.widgetState durante l'inizializzazione
+    // per essere sicuri di avere lo stato più recente
     if (typeof window !== "undefined" && window.openai?.widgetState) {
       const directState = window.openai.widgetState as Record<string, unknown>;
       if (directState[CART_STATE_KEY] && typeof directState[CART_STATE_KEY] === "object") {
@@ -71,9 +67,68 @@ export function useCart() {
       }
     }
     
+    // Se c'è uno stato valido nella chiave specifica da useOpenAiGlobal, usalo (anche se vuoto)
+    if (widgetStateFromGlobal && Array.isArray(widgetStateFromGlobal.items)) {
+      return widgetStateFromGlobal;
+    }
+    
     // Altrimenti parte sempre vuoto
     return createDefaultCartState();
   });
+  
+  // Aggiungi un listener diretto su window.openai.widgetState per reagire ai cambiamenti
+  // Questo garantisce che anche se useOpenAiGlobal non reagisce, il carrello si aggiorna
+  React.useEffect(() => {
+    if (typeof window === "undefined" || !window.openai?.widgetState) {
+      return;
+    }
+    
+    let lastKnownState: string | null = null;
+    
+    const checkState = () => {
+      const currentState = window.openai.widgetState as Record<string, unknown> | undefined;
+      if (!currentState) {
+        return;
+      }
+      
+      const currentCartState = currentState[CART_STATE_KEY] as CartWidgetState | undefined;
+      const currentItems = Array.isArray(currentCartState?.items) ? currentCartState.items : [];
+      const currentStateStr = JSON.stringify(currentItems);
+      
+      if (lastKnownState !== currentStateStr) {
+        lastKnownState = currentStateStr;
+        
+        // Non aggiornare se stiamo aggiornando localmente (per evitare loop)
+        if (isUpdatingLocalRef.current) {
+          return;
+        }
+        
+        // Aggiorna lo stato locale se è diverso
+        setCartState((prevState) => {
+          const prevItems = Array.isArray(prevState?.items) ? prevState.items : [];
+          const prevStateStr = JSON.stringify(prevItems);
+          
+          if (prevStateStr !== currentStateStr) {
+            if (currentItems.length > 0 || prevItems.length === 0) {
+              return currentCartState || createDefaultCartState();
+            }
+          }
+          return prevState;
+        });
+      }
+    };
+    
+    // Controlla lo stato periodicamente (ogni 200ms) per garantire la sincronizzazione
+    // Intervallo più frequente per una sincronizzazione più reattiva
+    const intervalId = setInterval(checkState, 200);
+    
+    // Controlla anche immediatamente
+    checkState();
+    
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, []);
 
   // Ref per tracciare se stiamo aggiornando lo stato localmente (per evitare loop)
   const isUpdatingLocalRef = React.useRef(false);
@@ -85,10 +140,24 @@ export function useCart() {
       return;
     }
 
+    // Leggi anche direttamente da window.openai.widgetState per essere sicuri di avere lo stato più recente
+    let latestGlobalState: CartWidgetState | null = null;
     if (widgetStateFromGlobal && Array.isArray(widgetStateFromGlobal.items)) {
+      latestGlobalState = widgetStateFromGlobal;
+    } else if (typeof window !== "undefined" && window.openai?.widgetState) {
+      const directState = window.openai.widgetState as Record<string, unknown>;
+      if (directState[CART_STATE_KEY] && typeof directState[CART_STATE_KEY] === "object") {
+        const directCartState = directState[CART_STATE_KEY] as CartWidgetState;
+        if (Array.isArray(directCartState.items)) {
+          latestGlobalState = directCartState;
+        }
+      }
+    }
+
+    if (latestGlobalState && Array.isArray(latestGlobalState.items)) {
       setCartState((prevState) => {
         const currentItems = Array.isArray(prevState?.items) ? prevState.items : [];
-        const globalItems = widgetStateFromGlobal.items;
+        const globalItems = latestGlobalState!.items!;
         // Solo sincronizza se è diverso E se lo stato globale ha più items (non sovrascrivere con uno stato vuoto)
         const currentItemsStr = JSON.stringify(currentItems);
         const globalItemsStr = JSON.stringify(globalItems);
@@ -96,12 +165,12 @@ export function useCart() {
           // IMPORTANTE: Se lo stato globale ha items e quello locale è vuoto, usa sempre quello globale
           // Se lo stato locale ha items e quello globale è vuoto, mantieni quello locale (non sovrascrivere)
           if (globalItems.length > 0 && currentItems.length === 0) {
-            return widgetStateFromGlobal;
+            return latestGlobalState!;
           } else if (globalItems.length === 0 && currentItems.length > 0) {
             return prevState;
           } else {
             // Entrambi hanno items o entrambi sono vuoti - sincronizza solo se diverso
-            return widgetStateFromGlobal;
+            return latestGlobalState!;
           }
         }
         return prevState;
@@ -162,12 +231,39 @@ export function useCart() {
           ...currentGlobalState,
           [CART_STATE_KEY]: cartState,
         };
+        // Aggiorna immediatamente window.openai.widgetState PRIMA di chiamare setWidgetState
+        // Questo garantisce che altri widget che leggono direttamente vedano subito i cambiamenti
+        if (typeof window !== "undefined" && window.openai) {
+          window.openai.widgetState = newState;
+        }
+        
         void window.openai.setWidgetState(newState).then(() => {
+          // Assicurati che lo stato sia ancora sincronizzato dopo setWidgetState
+          if (typeof window !== "undefined" && window.openai) {
+            window.openai.widgetState = newState;
+            
+            // Emetti manualmente l'evento SET_GLOBALS_EVENT_TYPE per notificare useOpenAiGlobal
+            if (typeof window.dispatchEvent !== "undefined") {
+              try {
+                const event = new CustomEvent("openai:set_globals", {
+                  detail: { 
+                    globals: {
+                      widgetState: newState
+                    }
+                  }
+                });
+                window.dispatchEvent(event);
+              } catch (e) {
+                // Ignora errori se l'evento non è supportato
+              }
+            }
+          }
+          
           // Reset il flag dopo che setWidgetState è completato
           // Usa setTimeout per dare tempo all'evento di propagarsi e agli altri widget di reagire
           setTimeout(() => {
             isUpdatingLocalRef.current = false;
-          }, 200);
+          }, 100);
         }).catch((error) => {
           isUpdatingLocalRef.current = false;
         });

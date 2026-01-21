@@ -1,5 +1,5 @@
 import React from "react";
-import { Star, ShoppingCart } from "lucide-react";
+import { ShoppingCart } from "lucide-react";
 import { Button } from "@openai/apps-sdk-ui/components/Button";
 import SafeImage from "../gdo/SafeImage";
 import { useProxyBaseUrl } from "../use-proxy-base-url";
@@ -64,12 +64,6 @@ function PlaceCard({ place, onCardClick }) {
             {place.price}
           </div>
         ) : null}
-        <div className="text-xs mt-1 text-black/60 flex items-center gap-1">
-          <Star className="h-3 w-3" aria-hidden="true" />
-          {place.rating?.toFixed ? place.rating.toFixed(1) : place.rating}
-          {place.price ? <span>· {place.price}</span> : null}
-          <span>· San Francisco</span>
-        </div>
         {place.description ? (
           <div className="text-sm mt-2 text-black/80 flex-auto">
             {place.description}
