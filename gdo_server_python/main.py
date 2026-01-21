@@ -460,6 +460,23 @@ def filter_products_by_category(products: List[Dict[str, Any]], category: str) -
     return filtered_products
 
 
+def filter_products_by_keywords(products: List[Dict[str, Any]], keywords: List[str]) -> List[Dict[str, Any]]:
+    if not products or not keywords:
+        return products
+    normalized = [str(k).lower().strip() for k in keywords if k]
+    if not normalized:
+        return products
+    filtered = []
+    for product in products:
+        description = (product.get("description", "") or "").lower()
+        if any(k in description for k in normalized):
+            filtered.append(product)
+    logger.info(f"Keyword filter kept {len(filtered)}/{len(products)} products for keywords={normalized}")
+    if not filtered:
+        logger.warning(f"No products matched keywords={normalized}")
+    return filtered
+
+
 def rank_products_by_criteria(
     products: List[Dict[str, Any]], 
     criteria: Dict[str, Any] = None
@@ -475,7 +492,6 @@ def rank_products_by_criteria(
     Args:
         products: Lista di prodotti da ordinare
         criteria: Dizionario con criteri di ricerca opzionali:
-            - size_inches: Dimensione richiesta in pollici (es. 45, 50)
             - max_price: Prezzo massimo desiderato
             - min_price: Prezzo minimo desiderato
             - target_price: Prezzo target (per trovare prodotti con prezzo simile)
@@ -486,25 +502,6 @@ def rank_products_by_criteria(
     """
     if not products or not criteria:
         return products
-    
-    def extract_size_from_name(name: str) -> int | None:
-        """Estrae la dimensione in pollici dal nome del prodotto."""
-        if not name:
-            return None
-        # Cerca pattern come "45 inch", "45\"", "45 pollici", "45in", "45-inch"
-        patterns = [
-            r'(\d+)\s*(?:inch|pollici|"|in)(?:es)?',
-            r'(\d+)[\s-]*(?:inch|pollici|"|in)',
-            r'(\d+)\s*(?:inch|pollici)',
-        ]
-        for pattern in patterns:
-            match = re.search(pattern, name, re.IGNORECASE)
-            if match:
-                try:
-                    return int(match.group(1))
-                except ValueError:
-                    continue
-        return None
     
     def get_price(product: Dict[str, Any]) -> float:
         """Estrae il prezzo dal prodotto. Il prezzo è una stringa che può contenere /kg."""
@@ -659,7 +656,7 @@ async def get_products_from_motherduck(category: str = None, product_ids: List[i
                 logger.info(f"Filtering products by IDs: {product_ids}")
             else:
                 query = "SELECT ID, company, description, price, categories FROM products_xeel_shop"
-            logger.debug(f"Executing query: {query}")
+            logger.info(f"Executing MotherDuck query: {query}")
             products_df = con.execute(query).fetchdf()
             
             # Converti DataFrame in lista di dizionari per compatibilità JSON
@@ -3561,7 +3558,8 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         target_price = arguments.get("target_price") if arguments else None
         max_price = arguments.get("max_price") if arguments else None
         min_price = arguments.get("min_price") if arguments else None
-        keywords = arguments.get("keywords") if arguments else None
+        raw_keywords = arguments.get("keywords") if arguments else None
+        keywords = raw_keywords if isinstance(raw_keywords, list) else [raw_keywords] if raw_keywords else []
         product_ids = arguments.get("product_ids") if arguments else None
         
         # Costruisci il dizionario dei criteri di ordinamento
@@ -3575,13 +3573,15 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
         if min_price is not None:
             criteria["min_price"] = float(min_price) if isinstance(min_price, (int, float, str)) else None
         if keywords:
-            criteria["keywords"] = keywords if isinstance(keywords, list) else [keywords] if keywords else []
+            criteria["keywords"] = keywords
         
         # Rimuovi valori None dal dizionario criteri
         criteria = {k: v for k, v in criteria.items() if v is not None and v != []}
         
-        if category:
-            logger.info(f"Tool {tool_name}: Category filter requested: '{category}'")
+        if category or product_ids or keywords:
+            logger.info(
+                f"Tool {tool_name}: Args normalized category={category}, product_ids={product_ids}, keywords={keywords}"
+            )
         if criteria:
             logger.info(f"Tool {tool_name}: Ranking criteria: {criteria}")
         
@@ -3589,6 +3589,8 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             # Tool che richiede accesso a MotherDuck
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck")
             products = await get_products_from_motherduck(category=category, product_ids=product_ids)
+            if keywords and not product_ids:
+                products = filter_products_by_keywords(products, keywords)
             product_count = len(products) if products else 0
             if product_count == 0:
                 # Se la lista è vuota, potrebbe essere dovuto a:
@@ -3620,6 +3622,8 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             # Non aggiungere mai prodotti di altre categorie per "riempire" la galleria
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to albums")
             products = await get_products_from_motherduck(category=category, product_ids=product_ids)
+            if keywords and not product_ids:
+                products = filter_products_by_keywords(products, keywords)
             if category:
                 logger.info(
                     f"Tool {tool_name}: Filtered {len(products)} products for category '{category}'. "
@@ -3677,6 +3681,9 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
             products = await get_products_from_motherduck(category=category, product_ids=product_ids)
+            
+            if keywords and not product_ids:
+                products = filter_products_by_keywords(products, keywords)
             
             # Limiti per evitare risposte troppo grandi
             MAX_CAROUSEL_PRODUCTS = 6
@@ -3757,6 +3764,8 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
             # IMPORTANTE: Se viene passata una categoria, mostra SOLO i prodotti di quella categoria
             logger.info(f"Tool {tool_name}: Fetching products from MotherDuck and transforming to places")
             products = await get_products_from_motherduck(category=category, product_ids=product_ids)
+            if keywords and not product_ids:
+                products = filter_products_by_keywords(products, keywords)
             
             # Limita a MAX_PRODUCTS_SHOP (24) per evitare risposte troppo grandi
             MAX_SHOP_PRODUCTS = 24
