@@ -2559,11 +2559,54 @@ def _tool_meta(widget: GdoWidget) -> Dict[str, Any]:
     }
 
 
-def _tool_invocation_meta(widget: GdoWidget) -> Dict[str, Any]:
-    return {
+def _get_widget_session_id() -> str | None:
+    try:
+        request_context = mcp._mcp_server.request_context
+    except LookupError:
+        return None
+
+    meta = request_context.meta
+    if meta is not None:
+        widget_session_id = getattr(meta, "widgetSessionId", None) or getattr(
+            meta, "widget_session_id", None
+        )
+        if widget_session_id:
+            return str(widget_session_id)
+        try:
+            meta_dict = meta.model_dump()
+        except Exception:
+            meta_dict = {}
+        if isinstance(meta_dict, dict):
+            for key in ("widgetSessionId", "widget_session_id", "openai/widgetSessionId"):
+                if meta_dict.get(key):
+                    return str(meta_dict[key])
+
+    request = request_context.request
+    if request is not None:
+        session_id = None
+        try:
+            session_id = request.query_params.get("session_id")
+        except Exception:
+            session_id = None
+        if not session_id:
+            try:
+                session_id = request.headers.get("mcp-session-id")
+            except Exception:
+                session_id = None
+        if session_id:
+            return str(session_id)
+
+    return None
+
+
+def _tool_invocation_meta(widget: GdoWidget, widget_session_id: str | None) -> Dict[str, Any]:
+    meta = {
         "openai/toolInvocation/invoking": widget.invoking,
         "openai/toolInvocation/invoked": widget.invoked,
     }
+    if widget_session_id:
+        meta["widgetSessionId"] = widget_session_id
+    return meta
 
 
 
@@ -2877,6 +2920,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
     """
     tool_name = req.params.name
     arguments = req.params.arguments or {}
+    widget_session_id = _get_widget_session_id()
     start_time = datetime.now()
     
     # Log completo dell'input utente (arguments) in formato JSON
@@ -3824,7 +3868,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                         )
                     ],
                     structuredContent={"products": products},
-                    _meta=_tool_invocation_meta(widget),
+                    _meta=_tool_invocation_meta(widget, widget_session_id),
                 )
             )
         elif tool_name == "gdo-albums":
@@ -3869,7 +3913,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                         )
                     ],
                     structuredContent={"albums": albums},
-                    _meta=_tool_invocation_meta(widget),
+                    _meta=_tool_invocation_meta(widget, widget_session_id),
                 )
             )
         elif tool_name in ["gdo-carousel", "gdo-map", "gdo-list", "mixed-auth-search"]:
@@ -4019,7 +4063,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                         )
                     ],
                     structuredContent={"places": places},
-                    _meta=_tool_invocation_meta(widget),
+                    _meta=_tool_invocation_meta(widget, widget_session_id),
                 )
             )
         elif tool_name == "gdo-shop":
@@ -4070,7 +4114,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                         )
                     ],
                     structuredContent={"places": places},
-                    _meta=_tool_invocation_meta(widget),
+                    _meta=_tool_invocation_meta(widget, widget_session_id),
                 )
             )
         else:
@@ -4091,7 +4135,7 @@ async def _call_tool_request(req: types.CallToolRequest) -> types.ServerResult:
                         )
                     ],
                     structuredContent={},
-                    _meta=_tool_invocation_meta(widget),
+                    _meta=_tool_invocation_meta(widget, widget_session_id),
                 )
             )
         
